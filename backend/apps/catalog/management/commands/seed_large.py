@@ -11,6 +11,7 @@ realistic work to do.
 """
 
 import random
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -216,16 +217,21 @@ class Command(BaseCommand):
     def _seed_catalog(self, rng: random.Random, count: int) -> list[str]:
         pool = _catalog_pool()
         rng.shuffle(pool)
-        pool = pool[:count]
         groups = {
             name: ProductGroup.objects.get_or_create(name=name)[0]
             for name in sorted({group for _n, _u, group in pool})
         }
-        token = f"{rng.randint(0, 9999):04d}"  # keep articles unique across re-runs
-        products = [
-            CatalogProduct(article=f"G{token}-{i:06d}", name=name, unit=unit, group=groups[group])
-            for i, (name, unit, group) in enumerate(pool, start=1)
-        ]
+        token = uuid.uuid4().hex[:6]  # unique per run, independent of --seed
+        products: list[CatalogProduct] = []
+        for i in range(count):
+            name, unit, group = pool[i % len(pool)]
+            cycle = i // len(pool)
+            display = name if cycle == 0 else f"{name} (вар. {cycle + 1})"
+            products.append(
+                CatalogProduct(
+                    article=f"G{token}-{i + 1:06d}", name=display, unit=unit, group=groups[group]
+                )
+            )
         CatalogProduct.objects.bulk_create(products, batch_size=1000)
         return [p.name for p in products]
 
