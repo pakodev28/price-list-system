@@ -18,6 +18,15 @@ const STATUS_LABEL: Record<string, string> = {
   no_match: "без соответствия",
 };
 
+const ESTIMATE_FIELDS = [
+  { key: "name", label: "Наименование" },
+  { key: "article", label: "Артикул" },
+  { key: "unit", label: "Ед. изм." },
+  { key: "quantity", label: "Количество" },
+  { key: "material_price", label: "Цена материалов" },
+  { key: "installation_price", label: "Цена монтажа" },
+];
+
 function rowClass(item: EstimateItem): string {
   if (item.is_confident) return "row-green";
   if (item.match_status === "matched" || item.match_status === "no_match") return "row-red";
@@ -62,7 +71,9 @@ export default function EstimatePage() {
     if (estimate.data.status === "parsing") return <p>Парсинг… {estimate.data.progress}%</p>;
     return (
       <ImportWizard
-        estimate={estimate.data}
+        resourceUrl={`/estimates/${estimateId}`}
+        sourceFilename={estimate.data.source_filename}
+        fields={ESTIMATE_FIELDS}
         onParsed={() => qc.invalidateQueries({ queryKey: ["estimate", estimateId] })}
       />
     );

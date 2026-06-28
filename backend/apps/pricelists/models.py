@@ -11,6 +11,7 @@ class PriceList(AbstractImportJob):
     """An uploaded supplier price file; also tracks its background parse job."""
 
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name="price_lists")
+    match_progress = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["-uploaded_at"]

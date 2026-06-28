@@ -5,9 +5,12 @@ from typing import Any
 from celery import shared_task
 from django.db import transaction
 
+from apps.catalog.models import CatalogProduct
 from apps.imports.constants import ImportStatus
 from apps.imports.excel import iter_rows
 from apps.imports.mapping import get_cell, to_decimal, to_text
+from apps.matching.service import MatchingService
+from apps.matching.shortlist import to_candidates
 
 from .models import PriceList, PriceListItem
 
@@ -82,3 +85,35 @@ def _build_items(
             price_list.progress = min(99, int(index / total * 100))
             price_list.save(update_fields=["progress"])
     return items, errors
+
+
+@shared_task
+def auto_match_price_list(price_list_id: int) -> dict[str, int]:
+    """Link price list items to catalog products above the confidence threshold.
+
+    Unlike estimates this only links *confident* matches (price lists carry no
+    per-item confidence display); weaker rows are left for manual linking.
+    """
+    price_list = PriceList.objects.get(pk=price_list_id)
+    candidates = to_candidates(CatalogProduct.objects.all())
+    service = MatchingService()
+    items = list(price_list.items.all())
+    total = len(items) or 1
+
+    price_list.match_progress = 0
+    price_list.save(update_fields=["match_progress"])
+
+    linked = 0
+    for position, item in enumerate(items, start=1):
+        outcome = service.match(item.name, item.article, candidates)
+        if outcome.product_id is not None and outcome.confidence >= service.threshold:
+            item.catalog_product_id = outcome.product_id
+            item.save(update_fields=["catalog_product"])
+            linked += 1
+        if position % 10 == 0 or position == total:
+            price_list.match_progress = min(100, int(position / total * 100))
+            price_list.save(update_fields=["match_progress"])
+
+    price_list.match_progress = 100
+    price_list.save(update_fields=["match_progress"])
+    return {"linked": linked}

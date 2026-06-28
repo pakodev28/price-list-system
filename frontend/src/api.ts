@@ -39,6 +39,7 @@ export interface ImportJob {
   processed_rows: number;
   error: string;
   row_errors: { row: number; message: string }[];
+  uploaded_at: string;
   mapping: Record<string, number>;
 }
 
@@ -64,6 +65,24 @@ export interface EstimateItem {
   match_source: string;
   confidence: number | null;
   is_confident: boolean;
+}
+
+export interface PriceList extends ImportJob {
+  supplier: number;
+  match_progress: number;
+  items_count: number;
+}
+
+export interface PriceListItem {
+  id: number;
+  row_number: number;
+  article: string;
+  name: string;
+  unit: string;
+  price: string | null;
+  catalog_product: number | null;
+  catalog_article: string | null;
+  catalog_name: string | null;
 }
 
 export interface Preview {

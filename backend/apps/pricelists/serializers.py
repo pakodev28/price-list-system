@@ -8,9 +8,26 @@ from .models import PriceList, PriceListItem
 
 
 class PriceListItemSerializer(serializers.ModelSerializer[PriceListItem]):
+    catalog_article = serializers.CharField(
+        source="catalog_product.article", read_only=True, default=None
+    )
+    catalog_name = serializers.CharField(
+        source="catalog_product.name", read_only=True, default=None
+    )
+
     class Meta:
         model = PriceListItem
-        fields = ["id", "row_number", "article", "name", "unit", "price", "catalog_product"]
+        fields = [
+            "id",
+            "row_number",
+            "article",
+            "name",
+            "unit",
+            "price",
+            "catalog_product",
+            "catalog_article",
+            "catalog_name",
+        ]
 
 
 class PriceListSerializer(serializers.ModelSerializer[PriceList]):
@@ -29,6 +46,7 @@ class PriceListSerializer(serializers.ModelSerializer[PriceList]):
             "mapping",
             "status",
             "progress",
+            "match_progress",
             "total_rows",
             "processed_rows",
             "error",

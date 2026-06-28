@@ -1,22 +1,24 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { apiGet, apiPost, type Estimate, type Preview } from "../api";
+import { apiGet, apiPost, type Preview } from "../api";
 
-const FIELDS: { key: string; label: string }[] = [
-  { key: "name", label: "Наименование" },
-  { key: "article", label: "Артикул" },
-  { key: "unit", label: "Ед. изм." },
-  { key: "quantity", label: "Количество" },
-  { key: "material_price", label: "Цена материалов" },
-  { key: "installation_price", label: "Цена монтажа" },
-];
+export interface ImportFieldDef {
+  key: string;
+  label: string;
+}
 
+/** Generic Excel import wizard: preview → column mapping → background parse.
+ *  Reused for both estimates and price lists via `resourceUrl` + `fields`. */
 export default function ImportWizard({
-  estimate,
+  resourceUrl,
+  sourceFilename,
+  fields,
   onParsed,
 }: {
-  estimate: Estimate;
+  resourceUrl: string;
+  sourceFilename: string;
+  fields: ImportFieldDef[];
   onParsed: () => void;
 }) {
   // null = let the backend auto-detect the header row.
@@ -24,12 +26,10 @@ export default function ImportWizard({
   const [mapping, setMapping] = useState<Record<string, number>>({});
 
   const preview = useQuery({
-    queryKey: ["preview", estimate.id, headerRow],
+    queryKey: ["preview", resourceUrl, headerRow],
     queryFn: () =>
       apiGet<Preview>(
-        `/estimates/${estimate.id}/preview/${
-          headerRow === null ? "" : `?header_row=${headerRow}`
-        }`,
+        `${resourceUrl}/preview/${headerRow === null ? "" : `?header_row=${headerRow}`}`,
       ),
   });
 
@@ -37,7 +37,7 @@ export default function ImportWizard({
 
   const parse = useMutation({
     mutationFn: () =>
-      apiPost(`/estimates/${estimate.id}/parse/`, {
+      apiPost(`${resourceUrl}/parse/`, {
         header_row: effectiveHeaderRow,
         sheet: "",
         mapping,
@@ -49,7 +49,7 @@ export default function ImportWizard({
 
   return (
     <div>
-      <h2>Импорт сметы: {estimate.source_filename}</h2>
+      <h2>Импорт файла: {sourceFilename}</h2>
       {preview.isError && (
         <p className="muted">Не удалось прочитать файл: {String(preview.error)}</p>
       )}
@@ -69,7 +69,7 @@ export default function ImportWizard({
       </form>
 
       <h3>Сопоставление колонок</h3>
-      {FIELDS.map((f) => (
+      {fields.map((f) => (
         <div key={f.key} className="inline">
           <label style={{ width: 160 }}>{f.label}</label>
           <select
