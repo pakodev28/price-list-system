@@ -1,0 +1,56 @@
+[project]
+name = "price-list-backend"
+version = "0.1.0"
+description = "Backend for the price-list & estimate management system"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.0,<5.2",
+    "djangorestframework>=3.15",
+    "django-environ>=0.11",
+    "django-filter>=24.2",
+    "drf-spectacular>=0.27",
+    "django-cors-headers>=4.4",
+    "psycopg[binary]>=3.2",
+    "celery[redis]>=5.4",
+    "redis>=5.0",
+    "python-calamine>=0.2",
+    "rapidfuzz>=3.9",
+    "openai>=1.40",
+    "gunicorn>=22.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "factory-boy>=3.3",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "django-stubs[compatible-mypy]>=5.0",
+    "djangorestframework-stubs>=3.15",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.dev"
+python_files = ["test_*.py", "tests.py"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+strict = true
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.dev"
