@@ -84,16 +84,20 @@ def _build_items(
 
 
 @shared_task
-def auto_match_estimate(estimate_id: int) -> dict[str, int]:
-    """Match every estimate item against the catalog, reporting progress.
+def auto_match_estimate(estimate_id: int, item_ids: list[int] | None = None) -> dict[str, int]:
+    """Match estimate items against the catalog, reporting progress.
 
+    When ``item_ids`` is given, only those items are matched; otherwise all of them.
     Items are saved one-by-one on purpose: matching is dominated by per-item LLM
     latency, and incremental saves let the UI stream results as they land.
     """
     estimate = Estimate.objects.get(pk=estimate_id)
     candidates = to_candidates(CatalogProduct.objects.all())
     service = MatchingService()
-    items = list(estimate.items.all())
+    queryset = estimate.items.all()
+    if item_ids:
+        queryset = queryset.filter(pk__in=item_ids)
+    items = list(queryset)
     total = len(items) or 1
 
     estimate.match_progress = 0

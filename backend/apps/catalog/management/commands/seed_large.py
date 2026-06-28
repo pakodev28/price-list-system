@@ -1,16 +1,18 @@
 """Generate a large, realistic dataset for manual and load testing.
 
-Usage (inside the backend container):
-    python manage.py seed_large                       # ~1200 products, 30 suppliers, …
-    python manage.py seed_large --catalog 3000 --suppliers 60
-    python manage.py seed_large --clear               # wipe existing data first
+Domain: import logistics China → Russia and customs clearance. The catalog holds
+freight/customs services and imported-goods categories; estimates and price lists
+reference them with *noisy* names (abbreviations, reordered words, dropped codes)
+plus ~10% unrelated rows, so matching has realistic work to do.
 
-Estimate / price-list items use *noisy* variants of catalog names (abbreviations,
-swapped separators, reordered words) plus ~10% unrelated rows, so matching has
-realistic work to do.
+Usage (inside the backend container):
+    python manage.py seed_large
+    python manage.py seed_large --catalog 1000 --suppliers 20
+    python manage.py seed_large --clear            # wipe existing data first
 """
 
 import random
+import re
 import uuid
 from decimal import Decimal
 from typing import Any
@@ -23,143 +25,233 @@ from apps.pricelists.models import PriceList, PriceListItem
 from apps.projects.models import Estimate, EstimateItem, Project
 from apps.suppliers.models import Supplier
 
-_BRANDS = ["IEK", "ABB", "Schneider", "Legrand", "DKC"]
 _COMPANY_STEMS = [
-    "СтройМонтаж",
-    "ЭлектроКомплект",
-    "ТехноКабель",
-    "ЭнергоСбыт",
-    "ПромСнаб",
-    "ГлавЭлектро",
-    "СибКабель",
-    "УралМонтаж",
-    "МегаВатт",
-    "СтройРесурс",
-    "Вольтаж",
+    "ВЭД-Логистик",
+    "КитайКарго",
+    "ТрансАзия",
+    "Силк Роуд Логистикс",
+    "ДальКонтейнер",
+    "ПрофТаможня",
+    "Восток-Запад",
+    "Глобал Фрахт",
+    "Азия Импорт",
+    "Карго Экспресс",
+    "ТаможняСервис",
+    "ПрофВЭД",
 ]
 _OBJECTS = [
-    "ЖК «Северный»",
-    "БЦ «Восход»",
-    "Школа №12",
-    "Склад логистики",
-    "ТЦ «Радуга»",
-    "Завод №3",
-    "Поликлиника №7",
-    "Детсад «Солнышко»",
+    "Поставка электроники (контракт CN-2026-014)",
+    "Импорт текстиля из Гуанчжоу",
+    "Партия бытовой техники",
+    "Контейнер автозапчастей",
+    "Сборный груз из Иу",
+    "Поставка мебели",
+    "Импорт инструмента",
+    "Партия игрушек",
 ]
 _JUNK = [
-    "Услуги монтажа",
-    "Доставка материалов",
-    "Накладные расходы",
-    "Пусконаладочные работы",
-    "Демонтаж старой проводки",
-    "Прочие материалы",
+    "Прочие расходы",
+    "Комиссия банка за платёж",
+    "Курьерская доставка документов",
+    "Перевод инвойса и упаковочного листа",
+    "Представительские расходы",
+    "Непредвиденные расходы",
+]
+_GOODS = [
+    ("Смартфон", "8517130000"),
+    ('Ноутбук 15.6"', "8471300000"),
+    ("Планшет", "8471300000"),
+    ("Кроссовки текстильные", "6404110000"),
+    ("Куртка зимняя", "6201400000"),
+    ("Футболка хлопковая", "6109100000"),
+    ("Игрушка пластиковая", "9503009900"),
+    ("Тормозные колодки", "8708301000"),
+    ("Аккумулятор автомобильный", "8507100000"),
+    ("Светодиодная лампа", "8539500000"),
+    ("Пылесос бытовой", "8508110000"),
+    ("Микроволновая печь", "8516500000"),
+    ("Наушники беспроводные", "8518300000"),
+    ("Стул офисный", "9401300000"),
+    ("Стол письменный", "9403100000"),
+    ("Шуруповёрт аккумуляторный", "8467211000"),
+    ("Набор отвёрток", "8205400000"),
+    ("Кофемашина", "8516710000"),
+    ("Робот-пылесос", "8508110000"),
+    ('Монитор 27"', "8528520000"),
+    ("Клавиатура механическая", "8471605000"),
+    ("Power bank 20000 мА·ч", "8507600000"),
+    ("Велосипед горный", "8712003000"),
+    ("Электросамокат", "8711600100"),
+    ("Термос стальной", "9617000000"),
+    ("Посуда керамическая (набор)", "6912008500"),
+    ("Гирлянда LED", "9405400000"),
+    ("Рюкзак городской", "4202129100"),
+    ("Зонт автоматический", "6601100000"),
+    ("Кабель USB-C", "8544429000"),
 ]
 
 
 def _catalog_pool() -> list[tuple[str, str, str]]:
-    """Canonical ``(name, unit, group)`` catalog entries (construction materials)."""
+    """Canonical ``(name, unit, group)`` catalog entries — logistics & customs."""
     pool: list[tuple[str, str, str]] = []
-    cables = "Кабельная продукция"
-    for kind in ["ВВГ", "ВВГнг(А)-LS", "NYM", "КГ", "ВБбШв", "АВВГ", "ПвБбШп", "КВВГ"]:
-        for cores in (1, 2, 3, 4, 5):
-            for sec in ("0.75", "1.5", "2.5", "4", "6", "10", "16", "25", "35", "50"):
-                pool.append((f"Кабель {kind} {cores}х{sec}", "м", cables))
-    for kind in ["ПВС", "ШВВП", "ПУГНП", "ПВ-3"]:
-        for cores in (2, 3, 4, 5):
-            for sec in ("0.5", "0.75", "1.5", "2.5", "4", "6"):
-                pool.append((f"Провод {kind} {cores}х{sec}", "м", cables))
-    pipes = "Трубы и фитинги"
-    for mat in [
-        "стальная ВГП",
-        "полипропиленовая PN20",
-        "ПНД ПЭ100",
-        "медная",
-        "гофрированная ПВХ",
-        "металлопластиковая",
+
+    sea = "Морской фрахт"
+    sea_routes = [
+        "Шанхай–Владивосток",
+        "Нинбо–Восточный",
+        "Циндао–Новороссийск",
+        "Шэньчжэнь–Санкт-Петербург",
+        "Гуанчжоу–Владивосток",
+        "Тяньцзинь–Восточный",
+        "Сямынь–Новороссийск",
+        "Далянь–Владивосток",
+    ]
+    for route in sea_routes:
+        for cont in ("20DC", "40DC", "40HC", "LCL сборный"):
+            pool.append((f"Морской фрахт {route}, {cont}", "конт.", sea))
+
+    air = "Авиаперевозки"
+    air_routes = [
+        "Гуанчжоу–Москва",
+        "Шанхай–Москва",
+        "Шэньчжэнь–Екатеринбург",
+        "Иу–Москва",
+        "Пекин–Новосибирск",
+        "Гонконг–Москва",
+    ]
+    for route in air_routes:
+        for weight in ("до 45 кг", "45–100 кг", "100–300 кг", "300–500 кг", "от 500 кг"):
+            pool.append((f"Авиаперевозка {route}, {weight}", "кг", air))
+
+    rail = "Ж/д перевозки"
+    rail_routes = [
+        "Чунцин–Москва",
+        "Сиань–Москва",
+        "Чэнду–Электроугли",
+        "Иу–Ворсино",
+        "Сучжоу–Москва",
+        "Далянь–Москва",
+    ]
+    for route in rail_routes:
+        for cont in ("20DC", "40HC", "сборный"):
+            pool.append((f"Ж/д перевозка {route}, {cont}", "конт.", rail))
+
+    auto = "Автодоставка по РФ"
+    auto_routes = [
+        "Владивосток–Москва",
+        "Новороссийск–Москва",
+        "СПб–Москва",
+        "Восточный–Екатеринбург",
+        "Москва–Казань",
+        "Москва–Новосибирск",
+        "Владивосток–Хабаровск",
+        "Москва–Краснодар",
+    ]
+    for route in auto_routes:
+        for truck in ("тент 20т", "реф 20т", "контейнеровоз"):
+            pool.append((f"Автодоставка {route}, {truck}", "рейс", auto))
+
+    duty = "Таможенные платежи"
+    categories = [
+        "электроника",
+        "текстиль",
+        "обувь",
+        "игрушки",
+        "автозапчасти",
+        "мебель",
+        "бытовая техника",
+        "инструмент",
+        "косметика",
+        "посуда",
+    ]
+    for cat in categories:
+        pool.append((f"Таможенная пошлина: {cat}", "усл.", duty))
+    for fee in ("НДС 20%", "Таможенный сбор", "Утилизационный сбор", "Акциз"):
+        pool.append((fee, "усл.", duty))
+
+    clearance = "Таможенное оформление"
+    for service in [
+        "Услуги таможенного брокера (1 ДТ)",
+        "Дополнительный лист ДТ",
+        "Электронное декларирование",
+        "Корректировка таможенной стоимости (КТС)",
+        "Предварительное решение по классификации",
+        "Подбор кода ТН ВЭД",
+        "Организация таможенного досмотра",
+        "Выпуск под обеспечение",
     ]:
-        for diam in (16, 20, 25, 32, 40, 50, 63, 90, 110):
-            for series in ("", " SDR11", " PN10", " усиленная"):
-                pool.append((f"Труба {mat} Ø{diam}{series}", "м", pipes))
-    electrical = "Электрооборудование"
-    for curve in ("B", "C", "D"):
-        for rating in (6, 10, 16, 20, 25, 32, 40, 50, 63):
-            for poles in ("1P", "2P", "3P"):
-                for brand in _BRANDS:
-                    pool.append(
-                        (
-                            f"Автоматический выключатель {brand} {curve}{rating} {poles}",
-                            "шт",
-                            electrical,
-                        )
-                    )
-    devices = "Розетки и выключатели"
-    for kind in [
-        "Розетка о/у",
-        "Розетка с/у с з/к",
-        "Выключатель 1-кл",
-        "Выключатель 2-кл",
-        "Розетка двойная",
-        "Рамка 1-постовая",
+        pool.append((service, "усл.", clearance))
+
+    cert = "Сертификация"
+    cert_docs = [
+        "Сертификат соответствия ТР ТС",
+        "Декларация соответствия ТР ТС",
+        "Отказное письмо",
+        "Свидетельство о госрегистрации (СГР)",
+        "Протокол испытаний",
+        "Сертификат происхождения СТ-1",
+    ]
+    for doc in cert_docs:
+        for cat in categories[:5]:
+            pool.append((f"{doc} ({cat})", "усл.", cert))
+
+    warehouse = "Склад и СВХ"
+    for service in [
+        "Хранение на СВХ (1 сутки)",
+        "Хранение на складе (паллетоместо/сутки)",
+        "ПРР контейнера 20'",
+        "ПРР контейнера 40'",
+        "Маркировка «Честный знак» (1 ед.)",
+        "Стикеровка (1 ед.)",
+        "Паллетирование",
+        "Пересчёт груза",
+        "Кросс-докинг",
     ]:
-        for brand in _BRANDS:
-            for color in ("белый", "крем", "антрацит"):
-                pool.append((f"{kind} {brand} ({color})", "шт", devices))
-    light = "Освещение"
-    for kind in [
-        "Светильник LED панель",
-        "Светильник LED линейный",
-        "Светильник ДПО",
-        "Светильник ДВО",
-        "Прожектор LED",
-        "Светильник аварийный",
+        pool.append((service, "усл.", warehouse))
+
+    insurance = "Страхование"
+    for service in [
+        "Страхование груза (0.2% от стоимости)",
+        "Страхование контейнерной перевозки",
+        "Страхование авиагруза",
+        "Страхование сборного груза",
     ]:
-        for power in (12, 18, 24, 36, 40, 48, 60, 100):
-            pool.append((f"{kind} {power}Вт", "шт", light))
-    trays = "Кабеленесущие системы"
-    for width in (16, 25, 40, 60, 80, 100):
-        for height in (10, 16, 25, 40, 60):
-            pool.append((f"Кабель-канал {width}х{height}", "м", trays))
-    for kind in ["Лоток лестничный", "Лоток перфорированный", "Короб металлический"]:
-        for width in (50, 100, 150, 200, 300, 400):
-            pool.append((f"{kind} {width} мм", "м", trays))
-    boards = "Щиты и боксы"
-    for kind in ["Щит навесной", "Щит встраиваемый", "Бокс пластиковый", "ЩРН"]:
-        for modules in (4, 6, 8, 12, 18, 24, 36):
-            pool.append((f"{kind} на {modules} модулей", "шт", boards))
-    fasten = "Крепёж и расходники"
-    for kind in [
-        "Дюбель-хомут",
-        "Саморез по металлу",
-        "Болт оцинкованный",
-        "Стяжка нейлоновая",
-        "Анкер клиновой",
-    ]:
-        for size in ("3х15", "4х20", "5х40", "6х60", "8х80", "10х100", "М6", "М8"):
-            pool.append((f"{kind} {size}", "шт", fasten))
+        pool.append((service, "усл.", insurance))
+
+    goods = "Товары (импорт)"
+    for name, code in _GOODS:
+        pool.append((f"{name} (ТН ВЭД {code})", "шт", goods))
+
     return pool
 
 
 def _noisy(name: str, rng: random.Random) -> str:
     """Produce a messy supplier/estimate-style variant of a canonical catalog name."""
     text = name
-    if rng.random() < 0.5:
-        text = text.replace("х", rng.choice(["x", "*", "х"]))
-    if rng.random() < 0.25:
-        text = text.replace(".", ",")
+    abbreviations = [
+        ("Морской фрахт", "Мор. фрахт"),
+        ("Авиаперевозка", "Авиа"),
+        ("Ж/д перевозка", "ЖД"),
+        ("Автодоставка", "Авто"),
+        ("Таможенная пошлина:", "Пошлина"),
+        ("Услуги таможенного брокера", "Брокер"),
+        ("контейнер", "конт."),
+        ("Хранение", "Хран."),
+    ]
+    for src, dst in abbreviations:
+        if rng.random() < 0.35:
+            text = text.replace(src, dst)
     if rng.random() < 0.3:
-        text = text.replace("Автоматический выключатель", "Авт. выкл.")
+        text = text.replace("–", "-")
     if rng.random() < 0.2:
-        text = text.replace("(А)-LS", "")
-    if rng.random() < 0.15:
-        text = text.replace("Кабель ", "Каб. ")
+        text = re.sub(r"\s*\(ТН ВЭД \d+\)", "", text)  # drop the HS code
     if rng.random() < 0.15:
         parts = text.split(" ")
         if len(parts) > 2:
             rng.shuffle(parts)
             text = " ".join(parts)
     if rng.random() < 0.12:
-        text = f"{text} {rng.choice(['ГОСТ', '(бухта)', 'имп.', '100м'])}"
+        text = f"{text} {rng.choice(['срочно', '(КНР)', 'предоплата', 'до двери'])}"
     return " ".join(text.split())
 
 
@@ -175,15 +267,15 @@ def _money(rng: random.Random, low: float, high: float) -> Decimal:
 
 
 class Command(BaseCommand):
-    help = "Generate a large, realistic dataset for manual/load testing."
+    help = "Generate a large, realistic logistics/customs dataset for manual testing."
 
     def add_arguments(self, parser: Any) -> None:
-        parser.add_argument("--catalog", type=int, default=1200)
-        parser.add_argument("--suppliers", type=int, default=30)
-        parser.add_argument("--pricelist-items", type=int, default=600)
-        parser.add_argument("--projects", type=int, default=6)
+        parser.add_argument("--catalog", type=int, default=400)
+        parser.add_argument("--suppliers", type=int, default=10)
+        parser.add_argument("--pricelist-items", type=int, default=200)
+        parser.add_argument("--projects", type=int, default=2)
         parser.add_argument("--estimates-per-project", type=int, default=2)
-        parser.add_argument("--estimate-items", type=int, default=300)
+        parser.add_argument("--estimate-items", type=int, default=100)
         parser.add_argument("--seed", type=int, default=42)
         parser.add_argument("--clear", action="store_true", help="Wipe existing data first.")
 
@@ -207,7 +299,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Готово: {CatalogProduct.objects.count()} товаров, "
+                f"Готово: {CatalogProduct.objects.count()} позиций каталога, "
                 f"{Supplier.objects.count()} поставщиков, "
                 f"{PriceListItem.objects.count()} позиций прайсов, "
                 f"{EstimateItem.objects.count()} позиций смет."
@@ -270,8 +362,8 @@ class Command(BaseCommand):
                 price_list=price_list,
                 row_number=row,
                 name=_item_name(names, rng),
-                unit="шт",
-                price=_money(rng, 10, 90000),
+                unit="усл.",
+                price=_money(rng, 500, 850000),
             )
             for price_list in price_lists
             for row in range(1, per_list + 1)
@@ -297,7 +389,7 @@ class Command(BaseCommand):
         items: list[EstimateItem] = []
         for project_index in range(1, projects + 1):
             project = Project.objects.create(
-                name=f"Проект №{project_index} — {rng.choice(_OBJECTS)}"
+                name=f"Сделка №{project_index} — {rng.choice(_OBJECTS)}"
             )
             for est_index in range(1, per_project + 1):
                 estimate = Estimate.objects.create(
@@ -314,10 +406,10 @@ class Command(BaseCommand):
                         estimate=estimate,
                         row_number=row,
                         name=_item_name(names, rng),
-                        unit="шт",
-                        quantity=Decimal(f"{rng.uniform(1, 500):.3f}"),
-                        material_price=_money(rng, 10, 90000),
-                        installation_price=_money(rng, 0, 5000),
+                        unit="усл.",
+                        quantity=Decimal(f"{rng.uniform(1, 50):.3f}"),
+                        material_price=_money(rng, 500, 850000),
+                        installation_price=_money(rng, 0, 50000),
                     )
                     for row in range(1, per_estimate + 1)
                 )

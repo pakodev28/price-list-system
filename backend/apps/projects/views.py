@@ -87,9 +87,10 @@ class EstimateViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="auto-match")
     def auto_match(self, request: Request, pk: str | None = None) -> Response:
         estimate = self.get_object()
+        item_ids = request.data.get("item_ids") or None
         estimate.match_progress = 0
         estimate.save(update_fields=["match_progress"])
-        auto_match_estimate.delay(estimate.id)
+        auto_match_estimate.delay(estimate.id, item_ids)
         return Response(EstimateSerializer(estimate).data, status=status.HTTP_202_ACCEPTED)
 
     @action(detail=True, methods=["get"])

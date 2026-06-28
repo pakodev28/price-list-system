@@ -88,16 +88,20 @@ def _build_items(
 
 
 @shared_task
-def auto_match_price_list(price_list_id: int) -> dict[str, int]:
+def auto_match_price_list(price_list_id: int, item_ids: list[int] | None = None) -> dict[str, int]:
     """Link price list items to catalog products above the confidence threshold.
 
+    When ``item_ids`` is given, only those items are processed; otherwise all of them.
     Unlike estimates this only links *confident* matches (price lists carry no
     per-item confidence display); weaker rows are left for manual linking.
     """
     price_list = PriceList.objects.get(pk=price_list_id)
     candidates = to_candidates(CatalogProduct.objects.all())
     service = MatchingService()
-    items = list(price_list.items.all())
+    queryset = price_list.items.all()
+    if item_ids:
+        queryset = queryset.filter(pk__in=item_ids)
+    items = list(queryset)
     total = len(items) or 1
 
     price_list.match_progress = 0

@@ -81,9 +81,10 @@ class PriceListViewSet(viewsets.ModelViewSet):
     def auto_match(self, request: Request, pk: str | None = None) -> Response:
         """Link items to catalog products above the confidence threshold (background)."""
         price_list = self.get_object()
+        item_ids = request.data.get("item_ids") or None
         price_list.match_progress = 0
         price_list.save(update_fields=["match_progress"])
-        auto_match_price_list.delay(price_list.id)
+        auto_match_price_list.delay(price_list.id, item_ids)
         return Response(PriceListSerializer(price_list).data, status=status.HTTP_202_ACCEPTED)
 
     @action(detail=True, methods=["get"])

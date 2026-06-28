@@ -33,7 +33,7 @@ def test_seed_large_creates_expected_volume() -> None:
 
 def test_seed_large_exceeds_pool_with_unique_articles() -> None:
     """Requesting more products than the canonical pool still yields unique articles."""
-    count = 1500  # above the ~1371-entry pool, so generation must cycle with variants
+    count = 1500  # above the canonical pool, so generation must cycle with variants
     call_command(
         "seed_large",
         catalog=count,

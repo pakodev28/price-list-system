@@ -37,3 +37,21 @@ def test_auto_match_marks_no_match_when_catalog_empty() -> None:
     item = estimate.items.get()
     assert item.match_status == EstimateItem.MatchStatus.NO_MATCH
     assert item.catalog_product_id is None
+
+
+def test_auto_match_only_selected_items() -> None:
+    estimate = EstimateFactory()
+    target = CatalogProductFactory(article="F1", name="Морской фрахт Шанхай Владивосток 40HC")
+    first = EstimateItem.objects.create(
+        estimate=estimate, row_number=1, name="фрахт Шанхай Владивосток 40HC"
+    )
+    second = EstimateItem.objects.create(
+        estimate=estimate, row_number=2, name="фрахт Шанхай Владивосток 40HC"
+    )
+
+    auto_match_estimate(estimate.id, item_ids=[first.id])
+
+    first.refresh_from_db()
+    second.refresh_from_db()
+    assert first.catalog_product_id == target.id
+    assert second.match_status == EstimateItem.MatchStatus.UNMATCHED  # untouched
