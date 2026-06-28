@@ -13,7 +13,8 @@ from rest_framework.response import Response
 
 from apps.catalog.models import CatalogProduct
 from apps.imports.excel import read_preview
-from apps.matching.shortlist import fuzzy_shortlist, to_candidates
+from apps.matching.semantic import hybrid_shortlist
+from apps.matching.shortlist import to_candidates
 
 from .models import PriceList, PriceListItem
 from .serializers import (
@@ -109,7 +110,7 @@ class PriceListItemViewSet(
     def candidates(self, request: Request, pk: str | None = None) -> Response:
         """Return the fuzzy catalog shortlist for manual linking."""
         item = self.get_object()
-        ranked = fuzzy_shortlist(
+        ranked = hybrid_shortlist(
             item.name, to_candidates(CatalogProduct.objects.all()), settings.MATCH_SHORTLIST_SIZE
         )
         return Response(

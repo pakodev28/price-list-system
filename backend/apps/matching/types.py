@@ -1,6 +1,7 @@
 """Matching value objects."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -10,6 +11,8 @@ class Candidate:
     id: int
     article: str
     name: str
+    # L2-normalized embedding (numpy array) or None; excluded from eq/hash.
+    vector: Any = field(default=None, compare=False, hash=False)
 
 
 @dataclass(frozen=True)

@@ -12,8 +12,13 @@ WORKDIR /app
 RUN uv pip install --system \
     "django>=5.0,<5.2" djangorestframework django-environ django-filter \
     drf-spectacular django-cors-headers "psycopg[binary]" "celery[redis]" \
-    redis python-calamine rapidfuzz openai gunicorn \
+    redis python-calamine rapidfuzz openai gunicorn fastembed numpy \
     pytest pytest-django factory-boy
+
+# Bake the multilingual embedding model into the image so the first match
+# isn't blocked on a download.
+RUN python -c "from fastembed import TextEmbedding; \
+    TextEmbedding('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')"
 
 COPY . .
 

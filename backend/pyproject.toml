@@ -17,6 +17,8 @@ dependencies = [
     "rapidfuzz>=3.9",
     "openai>=1.40",
     "gunicorn>=22.0",
+    "fastembed>=0.4",
+    "numpy>=1.26",
 ]
 
 [dependency-groups]

@@ -7,12 +7,21 @@ from rapidfuzz import fuzz, process
 from apps.catalog.models import CatalogProduct
 from apps.catalog.normalization import normalize_article, normalize_name
 
+from .embeddings import decode
 from .types import Candidate
 
 
 def to_candidates(products: Iterable[CatalogProduct]) -> list[Candidate]:
-    """Materialize catalog products into lightweight candidates."""
-    return [Candidate(id=p.id, article=p.article, name=p.name) for p in products]
+    """Materialize catalog products into candidates, decoding stored embeddings."""
+    return [
+        Candidate(
+            id=p.id,
+            article=p.article,
+            name=p.name,
+            vector=decode(p.embedding) if p.embedding else None,
+        )
+        for p in products
+    ]
 
 
 def find_exact_article(article: str, candidates: list[Candidate]) -> Candidate | None:

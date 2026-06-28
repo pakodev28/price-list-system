@@ -31,6 +31,8 @@ class CatalogProduct(models.Model):
         on_delete=models.SET_NULL,
         related_name="products",
     )
+    # L2-normalized sentence embedding (float32 bytes) for semantic matching.
+    embedding = models.BinaryField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

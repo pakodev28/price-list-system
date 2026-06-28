@@ -3,6 +3,7 @@
 from django.conf import settings
 
 from . import llm, shortlist
+from .semantic import hybrid_shortlist
 from .types import Candidate, MatchOutcome
 
 
@@ -37,7 +38,7 @@ class MatchingService:
         if exact is not None:
             return MatchOutcome(product_id=exact.id, confidence=1.0, source="article")
 
-        ranked = shortlist.fuzzy_shortlist(name, candidates, self.shortlist_size)
+        ranked = hybrid_shortlist(name, candidates, self.shortlist_size)
         if not ranked:
             return MatchOutcome(product_id=None, confidence=0.0, source="none")
 
