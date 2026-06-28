@@ -1,8 +1,10 @@
 """Background parsing of price list files."""
 
+import concurrent.futures
 from typing import Any
 
 from celery import shared_task
+from django.conf import settings
 from django.db import transaction
 
 from apps.catalog.models import CatalogProduct
@@ -108,15 +110,22 @@ def auto_match_price_list(price_list_id: int, item_ids: list[int] | None = None)
     price_list.save(update_fields=["match_progress"])
 
     linked = 0
-    for position, item in enumerate(items, start=1):
-        outcome = service.match(item.name, item.article, candidates)
-        if outcome.product_id is not None and outcome.confidence >= service.threshold:
-            item.catalog_product_id = outcome.product_id
-            item.save(update_fields=["catalog_product"])
-            linked += 1
-        if position % 10 == 0 or position == total:
-            price_list.match_progress = min(100, int(position / total * 100))
-            price_list.save(update_fields=["match_progress"])
+    done = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=settings.MATCH_CONCURRENCY) as pool:
+        futures = {
+            pool.submit(service.match, item.name, item.article, candidates): item for item in items
+        }
+        for future in concurrent.futures.as_completed(futures):
+            item = futures[future]
+            outcome = future.result()
+            if outcome.product_id is not None and outcome.confidence >= service.threshold:
+                item.catalog_product_id = outcome.product_id
+                item.save(update_fields=["catalog_product"])
+                linked += 1
+            done += 1
+            if done % 10 == 0 or done == total:
+                price_list.match_progress = min(100, int(done / total * 100))
+                price_list.save(update_fields=["match_progress"])
 
     price_list.match_progress = 100
     price_list.save(update_fields=["match_progress"])

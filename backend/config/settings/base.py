@@ -110,7 +110,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Matching / LLM configuration
 MATCHER_STRATEGY = env("MATCHER_STRATEGY", default="hybrid")
 MATCH_THRESHOLD = env.float("MATCH_THRESHOLD", default=0.75)
-MATCH_SHORTLIST_SIZE = env.int("MATCH_SHORTLIST_SIZE", default=5)
+MATCH_SHORTLIST_SIZE = env.int("MATCH_SHORTLIST_SIZE", default=8)
+MATCH_CONCURRENCY = env.int("MATCH_CONCURRENCY", default=8)
 LLM_ENABLED = env.bool("LLM_ENABLED", default=False)
 LLM_BASE_URL = env("LLM_BASE_URL", default="")
 LLM_API_KEY = env("LLM_API_KEY", default="")

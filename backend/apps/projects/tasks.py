@@ -1,8 +1,10 @@
 """Background tasks: estimate parsing and AI auto-matching."""
 
+import concurrent.futures
 from typing import Any
 
 from celery import shared_task
+from django.conf import settings
 from django.db import transaction
 
 from apps.catalog.models import CatalogProduct
@@ -88,8 +90,8 @@ def auto_match_estimate(estimate_id: int, item_ids: list[int] | None = None) -> 
     """Match estimate items against the catalog, reporting progress.
 
     When ``item_ids`` is given, only those items are matched; otherwise all of them.
-    Items are saved one-by-one on purpose: matching is dominated by per-item LLM
-    latency, and incremental saves let the UI stream results as they land.
+    LLM rerank calls run concurrently (``MATCH_CONCURRENCY``); each result is saved
+    in the main thread as it lands, so the UI streams progress live.
     """
     estimate = Estimate.objects.get(pk=estimate_id)
     candidates = to_candidates(CatalogProduct.objects.all())
@@ -104,21 +106,30 @@ def auto_match_estimate(estimate_id: int, item_ids: list[int] | None = None) -> 
     estimate.save(update_fields=["match_progress"])
 
     matched = 0
-    for position, item in enumerate(items, start=1):
-        outcome = service.match(item.name, item.article, candidates)
-        item.catalog_product_id = outcome.product_id
-        item.confidence = outcome.confidence
-        item.match_source = EstimateItem.MatchSource.AUTO
-        item.match_status = (
-            EstimateItem.MatchStatus.MATCHED
-            if outcome.product_id is not None
-            else EstimateItem.MatchStatus.NO_MATCH
-        )
-        item.save(update_fields=["catalog_product", "confidence", "match_source", "match_status"])
-        matched += 1 if outcome.product_id is not None else 0
-        if position % 10 == 0 or position == total:
-            estimate.match_progress = min(100, int(position / total * 100))
-            estimate.save(update_fields=["match_progress"])
+    done = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=settings.MATCH_CONCURRENCY) as pool:
+        futures = {
+            pool.submit(service.match, item.name, item.article, candidates): item for item in items
+        }
+        for future in concurrent.futures.as_completed(futures):
+            item = futures[future]
+            outcome = future.result()
+            item.catalog_product_id = outcome.product_id
+            item.confidence = outcome.confidence
+            item.match_source = EstimateItem.MatchSource.AUTO
+            item.match_status = (
+                EstimateItem.MatchStatus.MATCHED
+                if outcome.product_id is not None
+                else EstimateItem.MatchStatus.NO_MATCH
+            )
+            item.save(
+                update_fields=["catalog_product", "confidence", "match_source", "match_status"]
+            )
+            matched += 1 if outcome.product_id is not None else 0
+            done += 1
+            if done % 10 == 0 or done == total:
+                estimate.match_progress = min(100, int(done / total * 100))
+                estimate.save(update_fields=["match_progress"])
 
     estimate.match_progress = 100
     estimate.save(update_fields=["match_progress"])
