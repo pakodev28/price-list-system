@@ -44,3 +44,22 @@ def test_no_candidates_yields_none() -> None:
     outcome = MatchingService(use_llm=False).match(name="Кабель", article="", candidates=[])
     assert outcome.product_id is None
     assert outcome.source == "none"
+
+
+def test_high_score_accepted_without_llm() -> None:
+    target = CatalogProductFactory(article="X1", name="Морской фрахт 40HC")
+    outcome = MatchingService(use_llm=False).match(
+        name="Морской фрахт 40HC", article="", candidates=_candidates()
+    )
+    assert outcome.source == "retrieval"
+    assert outcome.product_id == target.id
+    assert outcome.confidence >= 0.78
+
+
+def test_weak_match_returns_no_match() -> None:
+    CatalogProductFactory(article="X2", name="Морской фрахт Шанхай Владивосток 40HC")
+    outcome = MatchingService(use_llm=False).match(
+        name="zzzzz qqqqq wwwww", article="", candidates=_candidates()
+    )
+    assert outcome.product_id is None
+    assert outcome.source == "none"

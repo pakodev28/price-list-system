@@ -18,6 +18,7 @@ def to_candidates(products: Iterable[CatalogProduct]) -> list[Candidate]:
             id=p.id,
             article=p.article,
             name=p.name,
+            group_id=p.group_id,
             vector=decode(p.embedding) if p.embedding else None,
         )
         for p in products

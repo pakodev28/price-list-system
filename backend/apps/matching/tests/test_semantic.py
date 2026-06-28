@@ -42,3 +42,45 @@ def test_hybrid_surfaces_strong_semantic_match(monkeypatch) -> None:
     ranked = semantic.hybrid_shortlist("фрахт 40HC", candidates, 5)
 
     assert ranked[0][0].id == 2
+
+
+def test_route_by_group_narrows_to_closest_group(monkeypatch, settings) -> None:
+    settings.MATCH_GROUP_TOP_N = 1
+    candidates = [
+        Candidate(
+            id=1,
+            article="",
+            name="фрахт A",
+            group_id=10,
+            vector=np.array([1.0, 0.0], dtype=np.float32),
+        ),
+        Candidate(
+            id=2,
+            article="",
+            name="фрахт B",
+            group_id=10,
+            vector=np.array([0.9, 0.1], dtype=np.float32),
+        ),
+        Candidate(
+            id=3,
+            article="",
+            name="электроника",
+            group_id=20,
+            vector=np.array([0.0, 1.0], dtype=np.float32),
+        ),
+        Candidate(
+            id=4,
+            article="",
+            name="без группы",
+            group_id=None,
+            vector=np.array([0.5, 0.5], dtype=np.float32),
+        ),
+    ]
+    monkeypatch.setattr(
+        semantic, "embed_texts", lambda _t: np.array([[1.0, 0.0]], dtype=np.float32)
+    )
+
+    routed = {c.id for c in semantic._route_by_group("фрахт", candidates)}
+
+    assert 3 not in routed  # far group dropped
+    assert {1, 2, 4} <= routed  # near group + ungrouped kept

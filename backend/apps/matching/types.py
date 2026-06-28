@@ -11,6 +11,7 @@ class Candidate:
     id: int
     article: str
     name: str
+    group_id: int | None = None
     # L2-normalized embedding (numpy array) or None; excluded from eq/hash.
     vector: Any = field(default=None, compare=False, hash=False)
 
