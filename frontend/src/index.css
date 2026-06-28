@@ -1,0 +1,46 @@
+:root {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #1f2933;
+  --green: #d7f5dd;
+  --green-border: #2f9e44;
+  --red: #ffe0e0;
+  --red-border: #e03131;
+  --gray: #f1f3f5;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: #fafafa; }
+
+nav {
+  display: flex;
+  gap: 16px;
+  padding: 12px 24px;
+  background: #1f2933;
+  color: #fff;
+}
+nav a { color: #cdd6e0; text-decoration: none; }
+nav a.active { color: #fff; font-weight: 600; }
+
+main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 22px; }
+h2 { font-size: 18px; }
+
+table { border-collapse: collapse; width: 100%; background: #fff; }
+th, td { border: 1px solid #e0e0e0; padding: 6px 10px; text-align: left; font-size: 14px; }
+th { background: #f1f3f5; }
+
+input, select, button { padding: 6px 8px; font-size: 14px; }
+button { cursor: pointer; }
+form.inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+
+.row-green { background: var(--green); }
+.row-red { background: var(--red); }
+.row-gray { background: var(--gray); }
+
+.badge { padding: 1px 8px; border-radius: 10px; font-size: 12px; border: 1px solid; }
+.badge.green { background: var(--green); border-color: var(--green-border); }
+.badge.red { background: var(--red); border-color: var(--red-border); }
+
+.progress { height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden; }
+.progress > div { height: 100%; background: #2f9e44; }
+.muted { color: #868e96; font-size: 13px; }
