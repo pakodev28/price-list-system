@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import {
@@ -24,6 +24,7 @@ export default function PriceListPage() {
   const { id } = useParams();
   const priceListId = Number(id);
   const qc = useQueryClient();
+  const [matchRunning, setMatchRunning] = useState(false);
 
   const priceList = useQuery({
     queryKey: ["price-list", priceListId],
@@ -31,8 +32,7 @@ export default function PriceListPage() {
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return false;
-      const matching = data.match_progress > 0 && data.match_progress < 100;
-      return data.status === "parsing" || matching ? 1000 : false;
+      return data.status === "parsing" || matchRunning ? 1000 : false;
     },
   });
 
@@ -43,16 +43,23 @@ export default function PriceListPage() {
       apiGet<Paginated<PriceListItem>>(
         `/price-list-items/?price_list=${priceListId}&page_size=500`,
       ),
-    refetchInterval: () => {
-      const data = priceList.data;
-      return data && data.match_progress > 0 && data.match_progress < 100 ? 1500 : false;
-    },
+    refetchInterval: () => (matchRunning ? 1500 : false),
   });
 
   const autoMatch = useMutation({
     mutationFn: () => apiPost(`/price-lists/${priceListId}/auto-match/`, {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["price-list", priceListId] }),
+    onSuccess: () => {
+      setMatchRunning(true);
+      qc.invalidateQueries({ queryKey: ["price-list", priceListId] });
+    },
   });
+
+  useEffect(() => {
+    if (matchRunning && (priceList.data?.match_progress ?? 0) >= 100) {
+      setMatchRunning(false);
+      qc.invalidateQueries({ queryKey: ["price-list-items", priceListId] });
+    }
+  }, [matchRunning, priceList.data?.match_progress, qc, priceListId]);
 
   if (!priceList.data) {
     return (
@@ -93,7 +100,7 @@ export default function PriceListPage() {
     );
   }
 
-  const matching = priceList.data.match_progress > 0 && priceList.data.match_progress < 100;
+  const matching = matchRunning;
 
   return (
     <div className="stack">
@@ -106,7 +113,10 @@ export default function PriceListPage() {
         </div>
         <div className="spacer" />
         {matching ? (
-          <Progress value={priceList.data.match_progress} />
+          <span className="row-flex">
+            <span className="spinner" />
+            <span className="muted">Привязка…</span>
+          </span>
         ) : (
           <button
             className="btn btn-primary"

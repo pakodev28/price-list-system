@@ -48,7 +48,7 @@ class AbstractImportJob(models.Model):
         self.mapping = mapping
         self.sheet = sheet
         self.header_row = header_row
-        self.status = ImportStatus.PENDING
+        self.status = ImportStatus.PARSING
         self.progress = 0
         self.error = ""
         self.row_errors = []
