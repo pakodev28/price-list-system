@@ -11,6 +11,7 @@ import {
   type Paginated,
 } from "../api";
 import ImportWizard from "../components/ImportWizard";
+import { EmptyRow, Loading, Progress } from "../components/ui";
 
 const STATUS_LABEL: Record<string, string> = {
   unmatched: "не сопоставлена",
@@ -30,7 +31,7 @@ const ESTIMATE_FIELDS = [
 function rowClass(item: EstimateItem): string {
   if (item.is_confident) return "row-green";
   if (item.match_status === "matched" || item.match_status === "no_match") return "row-red";
-  return "row-gray";
+  return "";
 }
 
 export default function EstimatePage() {
@@ -65,10 +66,35 @@ export default function EstimatePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["estimate", estimateId] }),
   });
 
-  if (!estimate.data) return <p>Загрузка…</p>;
+  if (!estimate.data) {
+    return (
+      <div className="loading">
+        <span className="spinner" />
+        Загрузка…
+      </div>
+    );
+  }
 
   if (estimate.data.status !== "done") {
-    if (estimate.data.status === "parsing") return <p>Парсинг… {estimate.data.progress}%</p>;
+    if (estimate.data.status === "parsing") {
+      return (
+        <div className="stack">
+          <div className="page-header">
+            <h1>Смета</h1>
+            <div className="sub">{estimate.data.source_filename}</div>
+          </div>
+          <div className="card card-pad">
+            <div className="row-flex">
+              <span className="badge amber">
+                <span className="dot" />
+                парсинг
+              </span>
+              <Progress value={estimate.data.progress} />
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <ImportWizard
         resourceUrl={`/estimates/${estimateId}`}
@@ -82,36 +108,61 @@ export default function EstimatePage() {
   const matching = estimate.data.match_progress > 0 && estimate.data.match_progress < 100;
 
   return (
-    <div>
-      <h1>Смета: {estimate.data.source_filename}</h1>
+    <div className="stack">
+      <div className="page-header row-flex">
+        <div>
+          <h1>Смета</h1>
+          <div className="sub">
+            {estimate.data.source_filename} · {estimate.data.items_count} позиций
+          </div>
+        </div>
+        <div className="spacer" />
+        {matching ? (
+          <Progress value={estimate.data.match_progress} />
+        ) : (
+          <button
+            className="btn btn-primary"
+            disabled={autoMatch.isPending}
+            onClick={() => autoMatch.mutate()}
+          >
+            ✨ ИИ-сопоставление
+          </button>
+        )}
+      </div>
+
       {estimate.data.row_errors.length > 0 && (
-        <p className="muted">
-          ⚠ {estimate.data.row_errors.length} строк пропущено из-за ошибок при парсинге
-        </p>
+        <div className="alert warn">
+          ⚠ {estimate.data.row_errors.length} строк пропущено из-за ошибок при парсинге.
+        </div>
       )}
-      <p>
-        <button disabled={autoMatch.isPending || matching} onClick={() => autoMatch.mutate()}>
-          ИИ-сопоставление
-        </button>
-        {matching && <span>&nbsp;&nbsp;{estimate.data.match_progress}%</span>}
-      </p>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Наименование</th>
-            <th>Кол-во</th>
-            <th>Товар каталога</th>
-            <th>Уверенность</th>
-            <th>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.data?.results.map((item) => (
-            <ItemRow key={item.id} item={item} onChanged={() => items.refetch()} />
-          ))}
-        </tbody>
-      </table>
+
+      <div className="card">
+        <div className="table-wrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Наименование</th>
+                <th>Кол-во</th>
+                <th>Товар каталога</th>
+                <th>Уверенность</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {!items.data ? (
+                <Loading cols={6} />
+              ) : items.data.results.length === 0 ? (
+                <EmptyRow cols={6} text="Нет позиций." />
+              ) : (
+                items.data.results.map((item) => (
+                  <ItemRow key={item.id} item={item} onChanged={() => items.refetch()} />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -133,7 +184,6 @@ function ItemRow({ item, onChanged }: { item: EstimateItem; onChanged: () => voi
       onChanged();
     },
   });
-
   const noMatch = useMutation({
     mutationFn: () => apiPost(`/estimate-items/${item.id}/no-match/`, {}),
     onSuccess: onChanged,
@@ -142,39 +192,53 @@ function ItemRow({ item, onChanged }: { item: EstimateItem; onChanged: () => voi
   return (
     <>
       <tr className={rowClass(item)}>
-        <td>{item.row_number}</td>
-        <td>{item.name}</td>
+        <td className="cell-num">{item.row_number}</td>
+        <td className="cell-strong">{item.name}</td>
         <td>{item.quantity ?? "—"}</td>
         <td>
           {item.catalog_product ? (
             <span>
               {item.catalog_name}
-              {item.catalog_article && (
-                <span className="muted"> · {item.catalog_article}</span>
-              )}
+              {item.catalog_article && <span className="muted"> · {item.catalog_article}</span>}
             </span>
           ) : (
-            STATUS_LABEL[item.match_status]
+            <span className="badge gray">{STATUS_LABEL[item.match_status]}</span>
           )}
         </td>
-        <td>{item.confidence !== null ? `${Math.round(item.confidence * 100)}%` : "—"}</td>
         <td>
-          <button onClick={() => setOpen((o) => !o)}>Кандидаты</button>{" "}
-          <button onClick={() => noMatch.mutate()}>Без соответствия</button>
+          {item.confidence !== null ? (
+            <span className={`badge ${item.is_confident ? "green" : "red"}`}>
+              {Math.round(item.confidence * 100)}%
+            </span>
+          ) : (
+            <span className="muted">—</span>
+          )}
+        </td>
+        <td>
+          <div className="actions">
+            <button className="btn btn-sm btn-ghost" onClick={() => setOpen((o) => !o)}>
+              Кандидаты
+            </button>
+            <button className="btn btn-sm btn-ghost" onClick={() => noMatch.mutate()}>
+              Без соответствия
+            </button>
+          </div>
         </td>
       </tr>
       {open && (
-        <tr>
+        <tr className="subrow">
           <td colSpan={6}>
-            {candidates.isLoading && "Загрузка…"}
+            {candidates.isLoading && <span className="muted">Загрузка…</span>}
             {candidates.data?.length === 0 && <span className="muted">Нет кандидатов</span>}
             {candidates.data?.map((c) => (
-              <div key={c.id} className="inline">
-                <button onClick={() => assign.mutate(c.id)}>Выбрать</button>
-                <span>
-                  {c.article} — {c.name}
-                </span>
-                <span className="muted">({Math.round(c.score * 100)}%)</span>
+              <div key={c.id} className="candidate">
+                <button className="btn btn-sm btn-primary" onClick={() => assign.mutate(c.id)}>
+                  Выбрать
+                </button>
+                <span className="cell-strong">{c.name}</span>
+                <span className="muted">{c.article}</span>
+                <span className="spacer" />
+                <span className="badge gray">{Math.round(c.score * 100)}%</span>
               </div>
             ))}
           </td>

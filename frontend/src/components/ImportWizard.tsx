@@ -48,85 +48,101 @@ export default function ImportWizard({
   const columns = preview.data?.columns ?? [];
 
   return (
-    <div>
-      <h2>Импорт файла: {sourceFilename}</h2>
-      {preview.isError && (
-        <p className="muted">Не удалось прочитать файл: {String(preview.error)}</p>
-      )}
+    <div className="stack">
+      <div className="page-header">
+        <h1>Импорт файла</h1>
+        <div className="sub">{sourceFilename}</div>
+      </div>
 
-      <form className="inline" onSubmit={(e) => e.preventDefault()}>
-        <label>
-          Строка заголовка:&nbsp;
+      <div className="card card-pad">
+        <div className="row-flex">
+          <span className="muted">Строка заголовка</span>
           <input
+            className="input sm"
             type="number"
             min={0}
+            style={{ width: 80 }}
             value={effectiveHeaderRow}
             onChange={(e) => setHeaderRow(Number(e.target.value))}
-            style={{ width: 60 }}
           />
-          {headerRow === null && <span className="muted"> (определена автоматически)</span>}
-        </label>
-      </form>
-
-      <h3>Сопоставление колонок</h3>
-      {fields.map((f) => (
-        <div key={f.key} className="inline">
-          <label style={{ width: 160 }}>{f.label}</label>
-          <select
-            value={mapping[f.key] ?? ""}
-            onChange={(e) => {
-              const value = e.target.value;
-              setMapping((m) => {
-                const next = { ...m };
-                if (value === "") delete next[f.key];
-                else next[f.key] = Number(value);
-                return next;
-              });
-            }}
-          >
-            <option value="">— нет —</option>
-            {columns.map((c, i) => (
-              <option key={i} value={i}>
-                {i}: {c}
-              </option>
-            ))}
-          </select>
+          {headerRow === null && <span className="badge blue">определена автоматически</span>}
         </div>
-      ))}
+        {preview.isError && (
+          <div className="alert error" style={{ marginTop: 12 }}>
+            Не удалось прочитать файл: {String(preview.error)}
+          </div>
+        )}
+      </div>
 
-      <h3>Превью</h3>
-      <table>
-        <thead>
-          <tr>
-            {columns.map((c, i) => (
-              <th key={i}>
-                {i}: {c}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {preview.data?.rows.slice(0, 10).map((row, ri) => (
-            <tr key={ri}>
-              {row.map((cell, ci) => (
-                <td key={ci}>{cell}</td>
-              ))}
-            </tr>
+      <div className="card">
+        <div className="card-header">Сопоставление колонок</div>
+        <div className="card-pad stack" style={{ gap: 10 }}>
+          {fields.map((f) => (
+            <div key={f.key} className="row-flex">
+              <span className="field-label">{f.label}</span>
+              <select
+                className="select sm"
+                value={mapping[f.key] ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setMapping((m) => {
+                    const next = { ...m };
+                    if (value === "") delete next[f.key];
+                    else next[f.key] = Number(value);
+                    return next;
+                  });
+                }}
+              >
+                <option value="">— нет —</option>
+                {columns.map((c, i) => (
+                  <option key={i} value={i}>
+                    {i}: {c}
+                  </option>
+                ))}
+              </select>
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
 
-      <p>
+      <div className="card">
+        <div className="card-header">Превью</div>
+        <div className="table-wrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                {columns.map((c, i) => (
+                  <th key={i}>
+                    {i}: {c}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {preview.data?.rows.slice(0, 10).map((row, ri) => (
+                <tr key={ri}>
+                  {row.map((cell, ci) => (
+                    <td key={ci}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="row-flex">
         <button
+          className="btn btn-primary"
           disabled={mapping.name === undefined || parse.isPending}
           onClick={() => parse.mutate()}
         >
           Распарсить
         </button>
         {mapping.name === undefined && (
-          <span className="muted"> — укажите колонку «Наименование»</span>
+          <span className="muted">Укажите колонку «Наименование»</span>
         )}
-      </p>
+      </div>
     </div>
   );
 }
