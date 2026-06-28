@@ -3,22 +3,23 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { apiGet, apiUpload, type Paginated, type PriceList, type Supplier } from "../api";
-import { EmptyRow, Loading, StatusBadge } from "../components/ui";
+import { EmptyRow, Loading, Pagination, StatusBadge } from "../components/ui";
 
 export default function PriceListsPage() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [expanded, setExpanded] = useState<number | null>(null);
 
   const suppliers = useQuery({
-    queryKey: ["suppliers", ""],
-    queryFn: () => apiGet<Paginated<Supplier>>("/suppliers/"),
+    queryKey: ["suppliers-pl", page],
+    queryFn: () => apiGet<Paginated<Supplier>>(`/suppliers/?page=${page}`),
   });
 
   return (
     <div className="stack">
       <div className="page-header">
         <h1>Прайс-листы</h1>
-        <div className="sub">Выберите поставщика, чтобы загрузить и распарсить его прайс.</div>
+        <div className="sub">Нажмите на поставщика, чтобы раскрыть и загрузить его прайсы.</div>
       </div>
 
       <div className="card">
@@ -40,31 +41,55 @@ export default function PriceListsPage() {
                 <EmptyRow cols={4} text="Сначала добавьте поставщиков на вкладке «Поставщики»." />
               ) : (
                 suppliers.data.results.map((s) => (
-                  <tr
+                  <SupplierRow
                     key={s.id}
-                    className={`selectable${selected === s.id ? " selected" : ""}`}
-                    onClick={() => setSelected(s.id)}
-                  >
-                    <td className="cell-strong">{s.name}</td>
-                    <td className="cell-num">{s.inn}</td>
-                    <td>
-                      <span className="badge gray">{s.currency}</span>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <span className="chev">›</span>
-                    </td>
-                  </tr>
+                    supplier={s}
+                    expanded={expanded === s.id}
+                    onToggle={() => setExpanded(expanded === s.id ? null : s.id)}
+                    onOpen={(id) => navigate(`/price-lists/${id}`)}
+                  />
                 ))
               )}
             </tbody>
           </table>
         </div>
+        <Pagination count={suppliers.data?.count ?? 0} page={page} onChange={setPage} />
       </div>
-
-      {selected !== null && (
-        <SupplierPriceLists supplierId={selected} onOpen={(id) => navigate(`/price-lists/${id}`)} />
-      )}
     </div>
+  );
+}
+
+function SupplierRow({
+  supplier,
+  expanded,
+  onToggle,
+  onOpen,
+}: {
+  supplier: Supplier;
+  expanded: boolean;
+  onToggle: () => void;
+  onOpen: (id: number) => void;
+}) {
+  return (
+    <>
+      <tr className={`selectable${expanded ? " selected" : ""}`} onClick={onToggle}>
+        <td className="cell-strong">{supplier.name}</td>
+        <td className="cell-num">{supplier.inn}</td>
+        <td>
+          <span className="badge gray">{supplier.currency}</span>
+        </td>
+        <td style={{ textAlign: "right" }}>
+          <span className="chev">{expanded ? "˅" : "›"}</span>
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="subrow">
+          <td colSpan={4}>
+            <SupplierPriceLists supplierId={supplier.id} onOpen={onOpen} />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -78,7 +103,7 @@ function SupplierPriceLists({
   const qc = useQueryClient();
   const priceLists = useQuery({
     queryKey: ["price-lists", supplierId],
-    queryFn: () => apiGet<Paginated<PriceList>>(`/price-lists/?supplier=${supplierId}`),
+    queryFn: () => apiGet<Paginated<PriceList>>(`/price-lists/?supplier=${supplierId}&page_size=100`),
   });
 
   const upload = useMutation({
@@ -95,9 +120,10 @@ function SupplierPriceLists({
   });
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <span>Прайс-листы поставщика</span>
+    <div>
+      <div className="row-flex" style={{ marginBottom: 10 }}>
+        <b>Прайс-листы поставщика</b>
+        <span className="spacer" />
         <label className="btn btn-primary btn-sm">
           Загрузить прайс (.xlsx)
           <input
@@ -111,7 +137,11 @@ function SupplierPriceLists({
           />
         </label>
       </div>
-      <div className="table-wrap">
+      {!priceLists.data ? (
+        <span className="muted">Загрузка…</span>
+      ) : priceLists.data.results.length === 0 ? (
+        <span className="muted">Загрузите первый прайс этого поставщика.</span>
+      ) : (
         <table className="tbl">
           <thead>
             <tr>
@@ -123,32 +153,26 @@ function SupplierPriceLists({
             </tr>
           </thead>
           <tbody>
-            {!priceLists.data ? (
-              <Loading cols={5} />
-            ) : priceLists.data.results.length === 0 ? (
-              <EmptyRow cols={5} text="Загрузите первый прайс этого поставщика." />
-            ) : (
-              priceLists.data.results.map((pl) => (
-                <tr key={pl.id}>
-                  <td className="cell-strong">{pl.source_filename}</td>
-                  <td className="muted">{new Date(pl.uploaded_at).toLocaleString("ru-RU")}</td>
-                  <td>
-                    <StatusBadge status={pl.status} />
-                  </td>
-                  <td className="cell-num">{pl.items_count}</td>
-                  <td>
-                    <div className="actions">
-                      <button className="btn btn-sm" onClick={() => onOpen(pl.id)}>
-                        Открыть
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
+            {priceLists.data.results.map((pl) => (
+              <tr key={pl.id}>
+                <td className="cell-strong">{pl.source_filename}</td>
+                <td className="muted">{new Date(pl.uploaded_at).toLocaleString("ru-RU")}</td>
+                <td>
+                  <StatusBadge status={pl.status} />
+                </td>
+                <td className="cell-num">{pl.items_count}</td>
+                <td>
+                  <div className="actions">
+                    <button className="btn btn-sm" onClick={() => onOpen(pl.id)}>
+                      Открыть
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
-      </div>
+      )}
     </div>
   );
 }

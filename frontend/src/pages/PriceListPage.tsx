@@ -11,7 +11,7 @@ import {
   type PriceListItem,
 } from "../api";
 import ImportWizard from "../components/ImportWizard";
-import { EmptyRow, Loading, Progress } from "../components/ui";
+import { EmptyRow, Loading, Pagination, Progress } from "../components/ui";
 
 const PRICE_LIST_FIELDS = [
   { key: "article", label: "Артикул" },
@@ -25,6 +25,8 @@ export default function PriceListPage() {
   const priceListId = Number(id);
   const qc = useQueryClient();
   const [matchRunning, setMatchRunning] = useState(false);
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const priceList = useQuery({
     queryKey: ["price-list", priceListId],
@@ -37,19 +39,19 @@ export default function PriceListPage() {
   });
 
   const items = useQuery({
-    queryKey: ["price-list-items", priceListId],
+    queryKey: ["price-list-items", priceListId, page],
     enabled: priceList.data?.status === "done",
     queryFn: () =>
-      apiGet<Paginated<PriceListItem>>(
-        `/price-list-items/?price_list=${priceListId}&page_size=500`,
-      ),
+      apiGet<Paginated<PriceListItem>>(`/price-list-items/?price_list=${priceListId}&page=${page}`),
     refetchInterval: () => (matchRunning ? 1500 : false),
   });
 
   const autoMatch = useMutation({
-    mutationFn: () => apiPost(`/price-lists/${priceListId}/auto-match/`, {}),
+    mutationFn: (itemIds: number[] | undefined) =>
+      apiPost(`/price-lists/${priceListId}/auto-match/`, itemIds ? { item_ids: itemIds } : {}),
     onSuccess: () => {
       setMatchRunning(true);
+      setSelected(new Set());
       qc.invalidateQueries({ queryKey: ["price-list", priceListId] });
     },
   });
@@ -100,7 +102,26 @@ export default function PriceListPage() {
     );
   }
 
-  const matching = matchRunning;
+  const pageItems = items.data?.results ?? [];
+  const pageIds = pageItems.map((it) => it.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+
+  const toggle = (itemId: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      pageIds.forEach((id) => (allOnPageSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+
+  const runMatch = () => autoMatch.mutate(selected.size ? [...selected] : undefined);
 
   return (
     <div className="stack">
@@ -112,18 +133,14 @@ export default function PriceListPage() {
           </div>
         </div>
         <div className="spacer" />
-        {matching ? (
+        {matchRunning ? (
           <span className="row-flex">
             <span className="spinner" />
             <span className="muted">Привязка…</span>
           </span>
         ) : (
-          <button
-            className="btn btn-primary"
-            disabled={autoMatch.isPending}
-            onClick={() => autoMatch.mutate()}
-          >
-            ✨ ИИ-привязка к каталогу
+          <button className="btn btn-primary" disabled={autoMatch.isPending} onClick={runMatch}>
+            {selected.size ? `✨ Привязать выбранные (${selected.size})` : "✨ ИИ-привязка к каталогу"}
           </button>
         )}
       </div>
@@ -139,6 +156,14 @@ export default function PriceListPage() {
           <table className="tbl">
             <thead>
               <tr>
+                <th style={{ width: 36 }}>
+                  <input
+                    type="checkbox"
+                    className="check"
+                    checked={allOnPageSelected}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th>#</th>
                 <th>Артикул</th>
                 <th>Наименование</th>
@@ -149,23 +174,40 @@ export default function PriceListPage() {
             </thead>
             <tbody>
               {!items.data ? (
-                <Loading cols={6} />
-              ) : items.data.results.length === 0 ? (
-                <EmptyRow cols={6} text="Нет позиций." />
+                <Loading cols={7} />
+              ) : pageItems.length === 0 ? (
+                <EmptyRow cols={7} text="Нет позиций." />
               ) : (
-                items.data.results.map((it) => (
-                  <PriceItemRow key={it.id} item={it} onChanged={() => items.refetch()} />
+                pageItems.map((it) => (
+                  <PriceItemRow
+                    key={it.id}
+                    item={it}
+                    checked={selected.has(it.id)}
+                    onToggle={() => toggle(it.id)}
+                    onChanged={() => items.refetch()}
+                  />
                 ))
               )}
             </tbody>
           </table>
         </div>
+        <Pagination count={items.data?.count ?? 0} page={page} onChange={setPage} />
       </div>
     </div>
   );
 }
 
-function PriceItemRow({ item, onChanged }: { item: PriceListItem; onChanged: () => void }) {
+function PriceItemRow({
+  item,
+  checked,
+  onToggle,
+  onChanged,
+}: {
+  item: PriceListItem;
+  checked: boolean;
+  onToggle: () => void;
+  onChanged: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   const candidates = useQuery({
@@ -194,6 +236,9 @@ function PriceItemRow({ item, onChanged }: { item: PriceListItem; onChanged: () 
   return (
     <>
       <tr className={item.catalog_product ? "row-green" : ""}>
+        <td>
+          <input type="checkbox" className="check" checked={checked} onChange={onToggle} />
+        </td>
         <td className="cell-num">{item.row_number}</td>
         <td className="cell-num">{item.article || "—"}</td>
         <td className="cell-strong">{item.name}</td>
@@ -227,7 +272,7 @@ function PriceItemRow({ item, onChanged }: { item: PriceListItem; onChanged: () 
       </tr>
       {open && (
         <tr className="subrow">
-          <td colSpan={6}>
+          <td colSpan={7}>
             {candidates.isLoading && <span className="muted">Загрузка…</span>}
             {candidates.data?.length === 0 && <span className="muted">Нет кандидатов</span>}
             {candidates.data?.map((c) => (

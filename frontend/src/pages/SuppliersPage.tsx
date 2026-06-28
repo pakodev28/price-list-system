@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { apiDelete, apiGet, apiPatch, apiPost, type Paginated, type Supplier } from "../api";
-import { EmptyRow, Loading } from "../components/ui";
+import { EmptyRow, Loading, Pagination } from "../components/ui";
 
 const CURRENCIES = ["RUB", "USD", "EUR", "CNY"];
 const EMPTY = { name: "", inn: "", currency: "RUB" };
@@ -10,13 +10,17 @@ const EMPTY = { name: "", inn: "", currency: "RUB" };
 export default function SuppliersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState(EMPTY);
 
   const { data } = useQuery({
-    queryKey: ["suppliers", search],
-    queryFn: () => apiGet<Paginated<Supplier>>(`/suppliers/?search=${encodeURIComponent(search)}`),
+    queryKey: ["suppliers", search, page],
+    queryFn: () =>
+      apiGet<Paginated<Supplier>>(
+        `/suppliers/?search=${encodeURIComponent(search)}&page=${page}`,
+      ),
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["suppliers"] });
@@ -48,7 +52,7 @@ export default function SuppliersPage() {
     <div className="stack">
       <div className="page-header">
         <h1>Поставщики</h1>
-        <div className="sub">Справочник поставщиков: название, ИНН, валюта.</div>
+        <div className="sub">Перевозчики и таможенные брокеры: название, ИНН, валюта.</div>
       </div>
 
       <div className="card card-pad">
@@ -98,10 +102,13 @@ export default function SuppliersPage() {
           <span>Все поставщики</span>
           <input
             className="input sm"
-            style={{ width: 220 }}
+            style={{ width: 240 }}
             placeholder="Поиск по названию или ИНН…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <div className="table-wrap">
@@ -118,7 +125,7 @@ export default function SuppliersPage() {
               {!data ? (
                 <Loading cols={4} />
               ) : data.results.length === 0 ? (
-                <EmptyRow cols={4} text="Поставщиков пока нет — добавьте первого выше." />
+                <EmptyRow cols={4} text="Поставщиков не найдено." />
               ) : (
                 data.results.map((s) =>
                   editingId === s.id ? (
@@ -183,6 +190,7 @@ export default function SuppliersPage() {
             </tbody>
           </table>
         </div>
+        <Pagination count={data?.count ?? 0} page={page} onChange={setPage} />
       </div>
     </div>
   );

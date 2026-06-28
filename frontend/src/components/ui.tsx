@@ -50,3 +50,37 @@ export function EmptyRow({ cols, text }: { cols: number; text: string }) {
     </tr>
   );
 }
+
+export const PAGE_SIZE = 25;
+
+export function Pagination({
+  count,
+  page,
+  onChange,
+}: {
+  count: number;
+  page: number;
+  onChange: (page: number) => void;
+}) {
+  if (count <= PAGE_SIZE) return null;
+  const pages = Math.ceil(count / PAGE_SIZE);
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(count, page * PAGE_SIZE);
+  return (
+    <div className="pager">
+      <span className="muted">
+        {from}–{to} из {count}
+      </span>
+      <span className="spacer" />
+      <button className="btn btn-sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+        ‹ Назад
+      </button>
+      <span className="muted">
+        {page} / {pages}
+      </span>
+      <button className="btn btn-sm" disabled={page >= pages} onClick={() => onChange(page + 1)}>
+        Вперёд ›
+      </button>
+    </div>
+  );
+}

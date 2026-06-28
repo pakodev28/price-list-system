@@ -3,6 +3,7 @@ import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 
 import CatalogPage from "./pages/CatalogPage";
 import EstimatePage from "./pages/EstimatePage";
+import HelpPage from "./pages/HelpPage";
 import PriceListPage from "./pages/PriceListPage";
 import PriceListsPage from "./pages/PriceListsPage";
 import ProjectsPage from "./pages/ProjectsPage";
@@ -38,6 +39,13 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
   ),
+  help: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
   logo: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 2 7 12 12 22 7 12 2" />
@@ -52,6 +60,7 @@ const NAV = [
   { to: "/price-lists", label: "Прайс-листы", icon: ICONS.prices },
   { to: "/catalog", label: "Каталог", icon: ICONS.catalog },
   { to: "/projects", label: "Проекты", icon: ICONS.projects },
+  { to: "/help", label: "Справка", icon: ICONS.help },
 ];
 
 export default function App() {
@@ -83,6 +92,7 @@ export default function App() {
             <Route path="/catalog" element={<CatalogPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/estimates/:id" element={<EstimatePage />} />
+            <Route path="/help" element={<HelpPage />} />
           </Routes>
         </div>
       </main>

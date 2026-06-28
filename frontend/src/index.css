@@ -474,6 +474,53 @@ tr.row-red td:first-child {
 .candidate + .candidate {
   border-top: 1px dashed var(--border);
 }
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.check {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary);
+  vertical-align: middle;
+}
+.help-section {
+  padding: 18px;
+}
+.help-section h2 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+.help-step {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0;
+}
+.help-step + .help-step {
+  border-top: 1px solid var(--border);
+}
+.help-step .num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.help-step .body {
+  font-size: 13.5px;
+}
+.help-step .body b {
+  font-weight: 600;
+}
 .subrow td {
   background: var(--surface-2);
 }

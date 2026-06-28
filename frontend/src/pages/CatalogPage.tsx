@@ -10,7 +10,7 @@ import {
   type Paginated,
   type ProductGroup,
 } from "../api";
-import { EmptyRow, Loading } from "../components/ui";
+import { EmptyRow, Loading, Pagination } from "../components/ui";
 
 interface ProductForm {
   article: string;
@@ -49,19 +49,22 @@ function GroupSelect({
 export default function CatalogPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState<ProductForm>(EMPTY);
   const [groupName, setGroupName] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<ProductForm>(EMPTY);
 
   const products = useQuery({
-    queryKey: ["catalog", search],
+    queryKey: ["catalog", search, page],
     queryFn: () =>
-      apiGet<Paginated<CatalogProduct>>(`/products/?search=${encodeURIComponent(search)}`),
+      apiGet<Paginated<CatalogProduct>>(
+        `/products/?search=${encodeURIComponent(search)}&page=${page}`,
+      ),
   });
   const groups = useQuery({
     queryKey: ["product-groups"],
-    queryFn: () => apiGet<Paginated<ProductGroup>>("/product-groups/"),
+    queryFn: () => apiGet<Paginated<ProductGroup>>("/product-groups/?page_size=500"),
   });
   const groupOptions = groups.data?.results ?? [];
 
@@ -102,8 +105,10 @@ export default function CatalogPage() {
   return (
     <div className="stack">
       <div className="page-header">
-        <h1>Каталог товаров</h1>
-        <div className="sub">Эталонный справочник — к нему привязываются прайсы и сметы.</div>
+        <h1>Каталог</h1>
+        <div className="sub">
+          Эталонный справочник услуг и товаров (ТН ВЭД) — к нему привязываются прайсы и сметы.
+        </div>
       </div>
 
       <div className="card card-pad">
@@ -116,7 +121,7 @@ export default function CatalogPage() {
         >
           <input
             className="input"
-            placeholder="Артикул"
+            placeholder="Артикул / код"
             value={form.article}
             onChange={(e) => setForm({ ...form, article: e.target.value })}
             required
@@ -131,7 +136,7 @@ export default function CatalogPage() {
           <input
             className="input"
             style={{ width: 110 }}
-            placeholder="Ед. изм."
+            placeholder="Ед."
             value={form.unit}
             onChange={(e) => setForm({ ...form, unit: e.target.value })}
           />
@@ -141,7 +146,7 @@ export default function CatalogPage() {
             onChange={(v) => setForm({ ...form, group: v })}
           />
           <button className="btn btn-primary" type="submit">
-            Добавить товар
+            Добавить
           </button>
         </form>
         <form
@@ -167,13 +172,16 @@ export default function CatalogPage() {
 
       <div className="card">
         <div className="card-header">
-          <span>Товары</span>
+          <span>Товары и услуги</span>
           <input
             className="input sm"
-            style={{ width: 220 }}
+            style={{ width: 240 }}
             placeholder="Поиск по артикулу или названию…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <div className="table-wrap">
@@ -191,7 +199,7 @@ export default function CatalogPage() {
               {!products.data ? (
                 <Loading cols={5} />
               ) : products.data.results.length === 0 ? (
-                <EmptyRow cols={5} text="В каталоге пока нет товаров." />
+                <EmptyRow cols={5} text="Ничего не найдено." />
               ) : (
                 products.data.results.map((p) =>
                   editingId === p.id ? (
@@ -265,6 +273,7 @@ export default function CatalogPage() {
             </tbody>
           </table>
         </div>
+        <Pagination count={products.data?.count ?? 0} page={page} onChange={setPage} />
       </div>
     </div>
   );

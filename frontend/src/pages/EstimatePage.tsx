@@ -11,7 +11,7 @@ import {
   type Paginated,
 } from "../api";
 import ImportWizard from "../components/ImportWizard";
-import { EmptyRow, Loading, Progress } from "../components/ui";
+import { EmptyRow, Loading, Pagination, Progress } from "../components/ui";
 
 const STATUS_LABEL: Record<string, string> = {
   unmatched: "не сопоставлена",
@@ -39,6 +39,8 @@ export default function EstimatePage() {
   const estimateId = Number(id);
   const qc = useQueryClient();
   const [matchRunning, setMatchRunning] = useState(false);
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const estimate = useQuery({
     queryKey: ["estimate", estimateId],
@@ -51,17 +53,19 @@ export default function EstimatePage() {
   });
 
   const items = useQuery({
-    queryKey: ["estimate-items", estimateId],
+    queryKey: ["estimate-items", estimateId, page],
     enabled: estimate.data?.status === "done",
     queryFn: () =>
-      apiGet<Paginated<EstimateItem>>(`/estimate-items/?estimate=${estimateId}&page_size=500`),
+      apiGet<Paginated<EstimateItem>>(`/estimate-items/?estimate=${estimateId}&page=${page}`),
     refetchInterval: () => (matchRunning ? 1500 : false),
   });
 
   const autoMatch = useMutation({
-    mutationFn: () => apiPost(`/estimates/${estimateId}/auto-match/`, {}),
+    mutationFn: (itemIds: number[] | undefined) =>
+      apiPost(`/estimates/${estimateId}/auto-match/`, itemIds ? { item_ids: itemIds } : {}),
     onSuccess: () => {
       setMatchRunning(true);
+      setSelected(new Set());
       qc.invalidateQueries({ queryKey: ["estimate", estimateId] });
     },
   });
@@ -112,7 +116,25 @@ export default function EstimatePage() {
     );
   }
 
-  const matching = matchRunning;
+  const pageItems = items.data?.results ?? [];
+  const pageIds = pageItems.map((it) => it.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+
+  const toggle = (itemId: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      pageIds.forEach((id) => (allOnPageSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+
+  const runMatch = () => autoMatch.mutate(selected.size ? [...selected] : undefined);
 
   return (
     <div className="stack">
@@ -124,18 +146,14 @@ export default function EstimatePage() {
           </div>
         </div>
         <div className="spacer" />
-        {matching ? (
+        {matchRunning ? (
           <span className="row-flex">
             <span className="spinner" />
             <span className="muted">Сопоставление…</span>
           </span>
         ) : (
-          <button
-            className="btn btn-primary"
-            disabled={autoMatch.isPending}
-            onClick={() => autoMatch.mutate()}
-          >
-            ✨ ИИ-сопоставление
+          <button className="btn btn-primary" disabled={autoMatch.isPending} onClick={runMatch}>
+            {selected.size ? `✨ Сопоставить выбранные (${selected.size})` : "✨ ИИ-сопоставление"}
           </button>
         )}
       </div>
@@ -151,6 +169,14 @@ export default function EstimatePage() {
           <table className="tbl">
             <thead>
               <tr>
+                <th style={{ width: 36 }}>
+                  <input
+                    type="checkbox"
+                    className="check"
+                    checked={allOnPageSelected}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th>#</th>
                 <th>Наименование</th>
                 <th>Кол-во</th>
@@ -161,23 +187,40 @@ export default function EstimatePage() {
             </thead>
             <tbody>
               {!items.data ? (
-                <Loading cols={6} />
-              ) : items.data.results.length === 0 ? (
-                <EmptyRow cols={6} text="Нет позиций." />
+                <Loading cols={7} />
+              ) : pageItems.length === 0 ? (
+                <EmptyRow cols={7} text="Нет позиций." />
               ) : (
-                items.data.results.map((item) => (
-                  <ItemRow key={item.id} item={item} onChanged={() => items.refetch()} />
+                pageItems.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    checked={selected.has(item.id)}
+                    onToggle={() => toggle(item.id)}
+                    onChanged={() => items.refetch()}
+                  />
                 ))
               )}
             </tbody>
           </table>
         </div>
+        <Pagination count={items.data?.count ?? 0} page={page} onChange={setPage} />
       </div>
     </div>
   );
 }
 
-function ItemRow({ item, onChanged }: { item: EstimateItem; onChanged: () => void }) {
+function ItemRow({
+  item,
+  checked,
+  onToggle,
+  onChanged,
+}: {
+  item: EstimateItem;
+  checked: boolean;
+  onToggle: () => void;
+  onChanged: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   const candidates = useQuery({
@@ -202,6 +245,9 @@ function ItemRow({ item, onChanged }: { item: EstimateItem; onChanged: () => voi
   return (
     <>
       <tr className={rowClass(item)}>
+        <td>
+          <input type="checkbox" className="check" checked={checked} onChange={onToggle} />
+        </td>
         <td className="cell-num">{item.row_number}</td>
         <td className="cell-strong">{item.name}</td>
         <td>{item.quantity ?? "—"}</td>
@@ -237,7 +283,7 @@ function ItemRow({ item, onChanged }: { item: EstimateItem; onChanged: () => voi
       </tr>
       {open && (
         <tr className="subrow">
-          <td colSpan={6}>
+          <td colSpan={7}>
             {candidates.isLoading && <span className="muted">Загрузка…</span>}
             {candidates.data?.length === 0 && <span className="muted">Нет кандидатов</span>}
             {candidates.data?.map((c) => (
