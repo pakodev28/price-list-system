@@ -1,0 +1,13 @@
+# Normalize line endings: keep text as LF in the repo. Shell scripts must stay
+# LF on every checkout (a Windows clone with core.autocrlf=true would otherwise
+# rewrite them to CRLF and break the Docker entrypoint: `env: 'sh\r'`).
+* text=auto
+*.sh text eol=lf
+
+# Binary assets — never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.xlsx binary
+*.xls binary
