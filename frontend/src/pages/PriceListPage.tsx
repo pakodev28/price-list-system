@@ -9,6 +9,7 @@ import {
   type Paginated,
   type PriceList,
   type PriceListItem,
+  type ProductDraft,
 } from "../api";
 import ImportWizard from "../components/ImportWizard";
 import { EmptyRow, Loading, Pagination, Progress } from "../components/ui";
@@ -209,12 +210,32 @@ function PriceItemRow({
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ article: "", name: "", unit: "", group: "" });
 
   const candidates = useQuery({
     queryKey: ["pl-candidates", item.id],
     enabled: open,
     queryFn: () => apiGet<CandidateOption[]>(`/price-list-items/${item.id}/candidates/`),
   });
+
+  const draft = useQuery({
+    queryKey: ["pl-draft", item.id],
+    enabled: creating,
+    queryFn: () => apiGet<ProductDraft>(`/price-list-items/${item.id}/product-draft/`),
+  });
+
+  // Pre-fill the form once the draft (with the AI-suggested group) arrives.
+  useEffect(() => {
+    if (draft.data) {
+      setForm({
+        article: draft.data.article,
+        name: draft.data.name,
+        unit: draft.data.unit,
+        group: draft.data.suggested_group != null ? String(draft.data.suggested_group) : "",
+      });
+    }
+  }, [draft.data]);
 
   const assign = useMutation({
     mutationFn: (productId: number) =>
@@ -225,13 +246,31 @@ function PriceItemRow({
     },
   });
   const createProduct = useMutation({
-    mutationFn: () => apiPost(`/price-list-items/${item.id}/create-product/`, {}),
-    onSuccess: onChanged,
+    mutationFn: () =>
+      apiPost(`/price-list-items/${item.id}/create-product/`, {
+        article: form.article,
+        name: form.name,
+        unit: form.unit,
+        group: form.group ? Number(form.group) : null,
+      }),
+    onSuccess: () => {
+      setCreating(false);
+      onChanged();
+    },
   });
   const unlink = useMutation({
     mutationFn: () => apiPost(`/price-list-items/${item.id}/unlink/`, {}),
     onSuccess: onChanged,
   });
+
+  const toggleCandidates = () => {
+    setCreating(false);
+    setOpen((o) => !o);
+  };
+  const toggleCreate = () => {
+    setOpen(false);
+    setCreating((c) => !c);
+  };
 
   return (
     <>
@@ -255,7 +294,7 @@ function PriceItemRow({
         </td>
         <td>
           <div className="actions">
-            <button className="btn btn-sm btn-ghost" onClick={() => setOpen((o) => !o)}>
+            <button className="btn btn-sm btn-ghost" onClick={toggleCandidates}>
               Кандидаты
             </button>
             {item.catalog_product ? (
@@ -263,7 +302,7 @@ function PriceItemRow({
                 Отвязать
               </button>
             ) : (
-              <button className="btn btn-sm btn-ghost" onClick={() => createProduct.mutate()}>
+              <button className="btn btn-sm btn-ghost" onClick={toggleCreate}>
                 Создать в каталоге
               </button>
             )}
@@ -286,6 +325,72 @@ function PriceItemRow({
                 <span className="badge gray">{Math.round(c.score * 100)}%</span>
               </div>
             ))}
+          </td>
+        </tr>
+      )}
+      {creating && (
+        <tr className="subrow">
+          <td colSpan={7}>
+            {draft.isLoading ? (
+              <span className="muted">Загрузка…</span>
+            ) : (
+              <div className="stack" style={{ gap: 10, maxWidth: 720 }}>
+                <div className="row-flex" style={{ gap: 10, flexWrap: "wrap" }}>
+                  <span className="field-label">Артикул</span>
+                  <input
+                    className="input sm"
+                    value={form.article}
+                    onChange={(e) => setForm({ ...form, article: e.target.value })}
+                  />
+                  <span className="field-label">Ед.</span>
+                  <input
+                    className="input sm"
+                    style={{ width: 90 }}
+                    value={form.unit}
+                    onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                  />
+                </div>
+                <div className="row-flex" style={{ gap: 10 }}>
+                  <span className="field-label">Наименование</span>
+                  <input
+                    className="input grow"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+                <div className="row-flex" style={{ gap: 10 }}>
+                  <span className="field-label">Группа</span>
+                  <select
+                    className="select sm"
+                    value={form.group}
+                    onChange={(e) => setForm({ ...form, group: e.target.value })}
+                  >
+                    <option value="">— без группы —</option>
+                    {draft.data?.groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                  {draft.data?.suggested_group != null &&
+                    form.group === String(draft.data.suggested_group) && (
+                      <span className="badge blue">предложено ИИ</span>
+                    )}
+                </div>
+                <div className="row-flex" style={{ gap: 10 }}>
+                  <button
+                    className="btn btn-sm btn-primary"
+                    disabled={!form.name || createProduct.isPending}
+                    onClick={() => createProduct.mutate()}
+                  >
+                    Создать и привязать
+                  </button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => setCreating(false)}>
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            )}
           </td>
         </tr>
       )}

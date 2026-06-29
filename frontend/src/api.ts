@@ -105,6 +105,14 @@ export interface CandidateOption {
   score: number;
 }
 
+export interface ProductDraft {
+  article: string;
+  name: string;
+  unit: string;
+  suggested_group: number | null;
+  groups: ProductGroup[];
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isForm = init?.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
