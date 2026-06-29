@@ -17,7 +17,7 @@
 
 Django 5 + DRF · PostgreSQL 16 · Celery + Redis · python-calamine (Excel) ·
 rapidfuzz + model2vec (локальная семантика) + опциональный LLM (OpenAI-совместимый) ·
-React + TypeScript + Vite · Docker Compose.
+React + TypeScript + Vite (в Docker — статическая сборка, раздаётся nginx) · Docker Compose.
 
 ## Быстрый старт
 
@@ -26,9 +26,12 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- Фронтенд: <http://localhost:5173>
+- Фронтенд: <http://localhost:5173> (статическая сборка SPA на nginx)
 - API + Swagger: <http://localhost:8000/api/docs/>
 - Django admin: <http://localhost:8000/admin/> (примитивный «визуал» для данных)
+
+Первая сборка бэкенда занимает пару минут (ставятся зависимости и запекается
+модель эмбеддингов); фронтенд собирается за секунды (`npm ci` из lock-файла + `vite build`).
 
 Демо-данные и пользователь админки:
 
@@ -77,6 +80,15 @@ LLM_MODEL=<имя модели>
 
 Порог зелёный/красный задаётся `MATCH_THRESHOLD` (по умолчанию 0.75).
 
+## Разработка
+
+В Docker фронтенд — это прод-артефакт (статика на nginx), без dev-сервера. Для
+локальной разработки с hot-reload запускайте Vite напрямую (API берётся с `:8000`):
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
 ## Тесты
 
 ```bash
@@ -90,6 +102,6 @@ docker compose run --rm backend pytest
 ```
 backend/   Django + DRF + Celery
   apps/    suppliers · catalog · pricelists · projects · matching · imports
-frontend/  Vite + React + TS (TanStack Query)
+frontend/  Vite + React + TS (TanStack Query); в Docker — статика на nginx
 docker-compose.yml
 ```
