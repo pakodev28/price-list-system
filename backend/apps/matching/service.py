@@ -1,5 +1,6 @@
 """Matching orchestration: article → group-routed hybrid retrieval → gated LLM rerank."""
 
+import numpy as np
 from django.conf import settings
 
 from . import llm, shortlist
@@ -40,12 +41,18 @@ class MatchingService:
         )
         self.use_llm = configured if use_llm is None else use_llm
 
-    def match(self, name: str, article: str, candidates: list[Candidate]) -> MatchOutcome:
+    def match(
+        self,
+        name: str,
+        article: str,
+        candidates: list[Candidate],
+        centroids: dict[int, np.ndarray] | None = None,
+    ) -> MatchOutcome:
         exact = shortlist.find_exact_article(article, candidates)
         if exact is not None:
             return MatchOutcome(product_id=exact.id, confidence=1.0, source="article")
 
-        ranked = retrieve(name, candidates, self.shortlist_size)
+        ranked = retrieve(name, candidates, self.shortlist_size, centroids)
         if not ranked:
             return MatchOutcome(product_id=None, confidence=0.0, source="none")
 

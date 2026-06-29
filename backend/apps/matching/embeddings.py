@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from apps.catalog.normalization import normalize_name
+
 MODEL_NAME = "minishlab/potion-multilingual-128M"
 
 _model = None
@@ -44,14 +46,26 @@ def decode(blob: bytes) -> np.ndarray:
     return np.frombuffer(blob, dtype=np.float32)
 
 
-def embed_catalog(batch_size: int = 512) -> int:
-    """Embed catalog products that have no embedding yet; returns the count embedded."""
+def embed_name(name: str) -> bytes:
+    """Embedding bytes for a single name — same preprocessing as ``embed_catalog``."""
+    return encode(embed_texts([normalize_name(name)])[0])
+
+
+def embed_catalog(batch_size: int = 512, rebuild: bool = False) -> int:
+    """Embed catalog products and return the count embedded.
+
+    By default only fills products that have no embedding yet; ``rebuild=True``
+    recomputes all of them (needed after the embedding text/model changes).
+    """
     from apps.catalog.models import CatalogProduct
 
-    pending = list(CatalogProduct.objects.filter(embedding__isnull=True).only("id", "name"))
+    queryset = CatalogProduct.objects.all() if rebuild else CatalogProduct.objects.filter(
+        embedding__isnull=True
+    )
+    pending = list(queryset.only("id", "name"))
     for start in range(0, len(pending), batch_size):
         chunk = pending[start : start + batch_size]
-        vectors = embed_texts([p.name for p in chunk])
+        vectors = embed_texts([normalize_name(p.name) for p in chunk])
         for product, vector in zip(chunk, vectors, strict=True):
             product.embedding = encode(vector)
         CatalogProduct.objects.bulk_update(chunk, ["embedding"])

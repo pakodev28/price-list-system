@@ -84,3 +84,74 @@ def test_route_by_group_narrows_to_closest_group(monkeypatch, settings) -> None:
 
     assert 3 not in routed  # far group dropped
     assert {1, 2, 4} <= routed  # near group + ungrouped kept
+
+
+def _grouped(cid: int, group_id: int, vector: list[float]) -> Candidate:
+    return Candidate(
+        id=cid, article="", name="x", group_id=group_id, vector=np.array(vector, dtype=np.float32)
+    )
+
+
+def test_retrieve_keeps_lexical_match_despite_misrouting(monkeypatch, settings) -> None:
+    settings.MATCH_GROUP_TOP_N = 1
+    candidates = [
+        _grouped(1, 10, [1.0, 0.0]),  # wrong group the query routes toward
+        _grouped(2, 10, [1.0, 0.0]),
+        Candidate(
+            id=3,
+            article="",
+            name="аккумулятор автомобильный",  # near-exact lexical match, far group
+            group_id=20,
+            vector=np.array([0.0, 1.0], dtype=np.float32),
+        ),
+    ]
+    # Query embedding points at group 10's centroid, so routing alone drops group 20.
+    monkeypatch.setattr(
+        semantic, "embed_texts", lambda _t: np.array([[1.0, 0.0]], dtype=np.float32)
+    )
+
+    ranked = semantic.retrieve("аккумулятор автомобильный", candidates, 5)
+
+    assert 3 in {c.id for c, _score in ranked}  # lexical winner survives misrouting
+
+
+def test_precomputed_centroids_preserve_routing(monkeypatch, settings) -> None:
+    settings.MATCH_GROUP_TOP_N = 1
+    candidates = [
+        _grouped(1, 10, [1.0, 0.0]),
+        _grouped(2, 20, [0.0, 1.0]),
+        Candidate(id=3, article="", name="x", vector=np.array([0.5, 0.5], dtype=np.float32)),
+    ]
+    monkeypatch.setattr(
+        semantic, "embed_texts", lambda _t: np.array([[1.0, 0.0]], dtype=np.float32)
+    )
+
+    centroids = semantic.group_centroids(candidates)
+    inline = {c.id for c in semantic._route_by_group("q", candidates)}
+    precomputed = {c.id for c in semantic._route_by_group("q", candidates, centroids)}
+
+    assert inline == precomputed == {1, 3}  # near group + ungrouped; far group dropped
+
+
+def test_classify_group_picks_nearest_centroid(monkeypatch, settings) -> None:
+    settings.MATCH_GROUP_MIN_SCORE = 0.5
+    candidates = [_grouped(1, 10, [1.0, 0.0]), _grouped(2, 20, [0.0, 1.0])]
+    monkeypatch.setattr(
+        semantic, "embed_texts", lambda _t: np.array([[1.0, 0.0]], dtype=np.float32)
+    )
+
+    assert semantic.classify_group("морской фрахт", candidates) == 10
+
+
+def test_classify_group_none_without_vectors() -> None:
+    assert semantic.classify_group("q", [Candidate(id=1, article="", name="x")]) is None
+
+
+def test_classify_group_below_floor_returns_none(monkeypatch, settings) -> None:
+    settings.MATCH_GROUP_MIN_SCORE = 0.9
+    # Query orthogonal to the only centroid -> score ~0, below the floor.
+    monkeypatch.setattr(
+        semantic, "embed_texts", lambda _t: np.array([[0.0, 1.0]], dtype=np.float32)
+    )
+
+    assert semantic.classify_group("q", [_grouped(1, 10, [1.0, 0.0])]) is None

@@ -40,7 +40,9 @@ services:
     build: ./backend
     # Skip the migrate entrypoint — only the backend service applies migrations.
     entrypoint: []
-    command: celery -A config worker -l info
+    # Cap prefork workers: each process lazily loads its own copy of the embedding
+    # model, and per-task LLM fan-out already runs concurrently via threads.
+    command: celery -A config worker -l info --concurrency=4
     env_file: .env
     volumes:
       - ./backend:/app

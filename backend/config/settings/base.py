@@ -115,6 +115,10 @@ MATCH_CONCURRENCY = env.int("MATCH_CONCURRENCY", default=8)
 MATCH_ACCEPT_THRESHOLD = env.float("MATCH_ACCEPT_THRESHOLD", default=0.78)
 MATCH_FLOOR = env.float("MATCH_FLOOR", default=0.40)
 MATCH_GROUP_TOP_N = env.int("MATCH_GROUP_TOP_N", default=2)
+MATCH_GROUP_MIN_SCORE = env.float("MATCH_GROUP_MIN_SCORE", default=0.35)
+# Embed a catalog product as soon as it's created from a position, so the hybrid
+# catalog is semantically matchable immediately (not only after `embed_catalog`).
+MATCH_EMBED_ON_CREATE = env.bool("MATCH_EMBED_ON_CREATE", default=True)
 LLM_ENABLED = env.bool("LLM_ENABLED", default=False)
 LLM_BASE_URL = env("LLM_BASE_URL", default="")
 LLM_API_KEY = env("LLM_API_KEY", default="")

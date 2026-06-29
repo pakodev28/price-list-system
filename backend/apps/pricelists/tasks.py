@@ -11,6 +11,7 @@ from apps.catalog.models import CatalogProduct
 from apps.imports.constants import ImportStatus
 from apps.imports.excel import iter_rows
 from apps.imports.mapping import get_cell, to_decimal, to_text
+from apps.matching.semantic import group_centroids
 from apps.matching.service import MatchingService
 from apps.matching.shortlist import to_candidates
 
@@ -99,6 +100,7 @@ def auto_match_price_list(price_list_id: int, item_ids: list[int] | None = None)
     """
     price_list = PriceList.objects.get(pk=price_list_id)
     candidates = to_candidates(CatalogProduct.objects.all())
+    centroids = group_centroids(candidates)  # computed once, reused for every item
     service = MatchingService()
     queryset = price_list.items.all()
     if item_ids:
@@ -113,7 +115,8 @@ def auto_match_price_list(price_list_id: int, item_ids: list[int] | None = None)
     done = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=settings.MATCH_CONCURRENCY) as pool:
         futures = {
-            pool.submit(service.match, item.name, item.article, candidates): item for item in items
+            pool.submit(service.match, item.name, item.article, candidates, centroids): item
+            for item in items
         }
         for future in concurrent.futures.as_completed(futures):
             item = futures[future]
