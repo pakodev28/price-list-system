@@ -63,3 +63,18 @@ def test_weak_match_returns_no_match() -> None:
     )
     assert outcome.product_id is None
     assert outcome.source == "none"
+
+
+def test_gray_zone_below_floor_is_no_match(settings) -> None:
+    """A weak gray-zone score (here ~0.43) must not be asserted as a tentative match.
+
+    Without the LLM it falls through to "no match" instead of linking an unrelated
+    catalog product.
+    """
+    settings.MATCH_FLOOR = 0.50
+    CatalogProductFactory(article="P1", name="Провод ПВС 2х1.5")
+    outcome = MatchingService(use_llm=False).match(
+        name="Гипсокартон влагостойкий 12.5мм", article="", candidates=_candidates()
+    )
+    assert outcome.product_id is None
+    assert outcome.source == "none"
