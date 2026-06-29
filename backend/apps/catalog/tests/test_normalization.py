@@ -12,7 +12,7 @@ def test_normalize_name_unifies_decimal_and_spacing() -> None:
 
 
 def test_synonyms_collapse_abbreviation_to_canonical() -> None:
-    # The noisy abbreviation and the canonical name normalize to the same string.
+    """A noisy abbreviation and the canonical name normalize to the same string."""
     assert normalize_name("Мор. фрахт Шанхай–Владивосток") == normalize_name(
         "Морской фрахт Шанхай–Владивосток"
     )
@@ -26,6 +26,6 @@ def test_synonyms_expand_each_abbreviation() -> None:
 
 
 def test_synonyms_do_not_double_expand_full_words() -> None:
-    # "морской" must not be re-expanded; "авиаперевозка" stays a single word.
+    """A canonical word is not re-expanded ("морской" stays "морской")."""
     assert normalize_name("Морской фрахт") == "морской фрахт"
     assert normalize_name("Авиаперевозка Шанхай") == "авиаперевозка шанхай"

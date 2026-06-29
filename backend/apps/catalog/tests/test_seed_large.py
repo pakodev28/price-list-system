@@ -27,13 +27,12 @@ def test_seed_large_creates_expected_volume() -> None:
     assert Supplier.objects.count() == 2
     assert PriceListItem.objects.count() == 2 * 5
     assert EstimateItem.objects.count() == 1 * 1 * 8
-    # noisy variants must still resolve to real catalog names for matching
     assert EstimateItem.objects.exclude(name="").count() == 8
 
 
 def test_seed_large_exceeds_pool_with_unique_articles() -> None:
     """Requesting more products than the canonical pool still yields unique articles."""
-    count = 1500  # above the canonical pool, so generation must cycle with variants
+    count = 1500
     call_command(
         "seed_large",
         catalog=count,

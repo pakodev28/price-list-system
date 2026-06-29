@@ -12,8 +12,7 @@ def test_eval_runs_lexically_and_reports_sane_metrics() -> None:
 
 
 def test_lexical_recall_is_high_thanks_to_synonyms() -> None:
-    # With abbreviation expansion, even pure lexical retrieval should surface most
-    # gold candidates into the shortlist.
+    """With abbreviation expansion, pure lexical retrieval surfaces most gold answers."""
     report = run_eval(embed=False, use_llm=False)
 
     assert report.recall_at_k >= 0.7

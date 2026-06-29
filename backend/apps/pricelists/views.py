@@ -40,7 +40,7 @@ def _embed_new_product(product: CatalogProduct) -> None:
     try:
         product.embedding = embed_name(product.name)
         product.save(update_fields=["embedding"])
-    except Exception:  # noqa: BLE001 — embedding is best-effort, never blocks creation
+    except Exception:  # noqa: BLE001
         logger.exception("Failed to embed new catalog product %s", product.pk)
 
 
@@ -71,7 +71,7 @@ class PriceListViewSet(viewsets.ModelViewSet):
         header_row = int(header_row_param) if header_row_param not in (None, "") else None
         try:
             preview = read_preview(price_list.file.path, sheet, header_row)
-        except Exception as exc:  # noqa: BLE001 — bad/corrupt file -> 400, not 500
+        except Exception as exc:  # noqa: BLE001
             return Response(
                 {"detail": f"Не удалось прочитать файл: {exc}"},
                 status=status.HTTP_400_BAD_REQUEST,

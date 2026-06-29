@@ -1,4 +1,4 @@
-// Small shared presentational helpers.
+/** Small shared presentational helpers. */
 
 const STATUS: Record<string, { cls: string; label: string }> = {
   pending: { cls: "gray", label: "ожидает" },

@@ -1,4 +1,8 @@
-"""Seed demo data so the matching flow can be tried immediately."""
+"""Seed demo data so the matching flow can be tried immediately.
+
+The last estimate row intentionally has no catalog counterpart, to demonstrate
+the red "no match" state alongside confident matches.
+"""
 
 from typing import Any
 
@@ -18,7 +22,7 @@ _ESTIMATE_ROWS = [
     ("Кабель ВВГнг 3х2.5", "м", "120"),
     ("Провод ПВС 2x1,5", "м", "80"),
     ("Труба ВГП 20", "м", "50"),
-    ("Щит распределительный навесной", "шт", "2"),  # intentionally has no match
+    ("Щит распределительный навесной", "шт", "2"),
 ]
 
 

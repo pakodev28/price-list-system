@@ -54,6 +54,6 @@ def rerank(
         if 0 <= index < len(shortlist):
             return index, confidence
         return None, 0.0
-    except Exception:  # noqa: BLE001 — any failure degrades to fuzzy fallback
+    except Exception:  # noqa: BLE001
         logger.exception("LLM rerank failed; falling back to fuzzy ranking")
         return None

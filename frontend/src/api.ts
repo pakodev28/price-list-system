@@ -1,4 +1,4 @@
-// Thin typed client over the REST API.
+/** Thin typed client over the REST API. */
 
 export const API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:8000/api";

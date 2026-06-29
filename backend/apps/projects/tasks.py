@@ -78,7 +78,7 @@ def _build_items(
                     installation_price=to_decimal(get_cell(row, mapping.get("installation_price"))),
                 )
             )
-        except Exception as exc:  # noqa: BLE001 — collect row error and continue
+        except Exception as exc:  # noqa: BLE001
             errors.append({"row": index, "message": str(exc)})
         if index % _BATCH_SIZE == 0:
             estimate.progress = min(99, int(index / total * 100))
@@ -96,7 +96,7 @@ def auto_match_estimate(estimate_id: int, item_ids: list[int] | None = None) -> 
     """
     estimate = Estimate.objects.get(pk=estimate_id)
     candidates = to_candidates(CatalogProduct.objects.all())
-    centroids = group_centroids(candidates)  # computed once, reused for every item
+    centroids = group_centroids(candidates)
     service = MatchingService()
     queryset = estimate.items.all()
     if item_ids:

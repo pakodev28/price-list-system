@@ -6,6 +6,10 @@ lets us tune thresholds and embeddings against numbers instead of guessing.
 
 Run it with ``manage.py eval_matching`` (uses the embedding model for the
 semantic signal); the metric logic is unit-tested in lexical-only mode.
+
+``CATALOG`` is the canonical ``(name, group)`` universe; ``CASES`` are noisy
+supplier/estimate-style queries (abbreviations, reordered words, dropped codes)
+plus one unrelated row that must resolve to "no match".
 """
 
 from dataclasses import dataclass
@@ -19,7 +23,6 @@ from .semantic import retrieve
 from .service import MatchingService
 from .types import Candidate
 
-# Canonical catalog universe: (name, group).
 CATALOG: list[tuple[str, str]] = [
     ("Морской фрахт Шанхай–Владивосток, 40HC", "Морской фрахт"),
     ("Морской фрахт Нинбо–Восточный, 20DC", "Морской фрахт"),
@@ -46,8 +49,6 @@ class EvalCase:
     article: str = ""
 
 
-# Noisy supplier/estimate-style queries (abbreviations, reordered words, dropped
-# codes) plus one unrelated row that must resolve to "no match".
 CASES: list[EvalCase] = [
     EvalCase("Мор. фрахт Шанхай-Владивосток 40HC", "Морской фрахт Шанхай–Владивосток, 40HC"),
     EvalCase("морской фрахт нинбо восточный 20DC", "Морской фрахт Нинбо–Восточный, 20DC"),

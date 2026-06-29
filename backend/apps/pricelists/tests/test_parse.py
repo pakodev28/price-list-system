@@ -22,7 +22,7 @@ def test_parse_creates_items_and_skips_blank(
     rows = [
         ["A-1", "Кабель", "м", "100,5"],
         ["A-2", "Труба", "шт", "200"],
-        ["", "", "", ""],  # blank name -> skipped
+        ["", "", "", ""],
     ]
     monkeypatch.setattr("apps.pricelists.tasks.iter_rows", lambda *_a, **_k: iter(rows))
 
@@ -58,7 +58,7 @@ def test_parse_collects_row_errors(
     price_list.refresh_from_db()
 
     assert price_list.status == ImportStatus.DONE
-    assert price_list.items.count() == 1  # the good row
+    assert price_list.items.count() == 1
     assert len(price_list.row_errors) == 1
     assert price_list.row_errors[0]["row"] == 2
 
@@ -84,6 +84,5 @@ def test_parse_failure_is_atomic_and_keeps_previous_items(
 
     price_list.refresh_from_db()
     assert price_list.status == ImportStatus.FAILED
-    # the delete was rolled back together with the failed insert
     assert price_list.items.count() == 1
     assert price_list.items.get().name == "старая позиция"

@@ -54,4 +54,4 @@ def test_auto_match_only_selected_items() -> None:
     first.refresh_from_db()
     second.refresh_from_db()
     assert first.catalog_product_id == target.id
-    assert second.match_status == EstimateItem.MatchStatus.UNMATCHED  # untouched
+    assert second.match_status == EstimateItem.MatchStatus.UNMATCHED

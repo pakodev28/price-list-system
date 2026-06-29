@@ -57,12 +57,12 @@ class MatchingService:
             return MatchOutcome(product_id=None, confidence=0.0, source="none")
 
         best, score = ranked[0]
-        if score >= self.accept_threshold:  # confident → accept without the LLM
+        if score >= self.accept_threshold:
             return MatchOutcome(product_id=best.id, confidence=score, source="retrieval")
-        if score < self.floor:  # too weak → don't force a match
+        if score < self.floor:
             return MatchOutcome(product_id=None, confidence=score, source="none")
 
-        if self.use_llm:  # ambiguous middle → let the LLM decide
+        if self.use_llm:
             result = llm.rerank(name, article, ranked)
             if result is not None:
                 index, confidence = result

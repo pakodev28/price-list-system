@@ -62,7 +62,7 @@ class EstimateViewSet(viewsets.ModelViewSet):
         header_row = int(header_row_param) if header_row_param not in (None, "") else None
         try:
             preview = read_preview(estimate.file.path, sheet, header_row)
-        except Exception as exc:  # noqa: BLE001 — bad/corrupt file -> 400, not 500
+        except Exception as exc:  # noqa: BLE001
             return Response(
                 {"detail": f"Не удалось прочитать файл: {exc}"},
                 status=status.HTTP_400_BAD_REQUEST,

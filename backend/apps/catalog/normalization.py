@@ -1,4 +1,12 @@
-"""Shared text normalization for article/name matching."""
+"""Shared text normalization for article/name matching.
+
+Domain abbreviations (logistics / customs) are expanded to a canonical form. Both
+the catalog name and the noisy supplier/estimate name pass through here, so they
+converge on the same wording — boosting lexical *and* semantic recall. The
+substitutions run on lowercased text before punctuation is stripped, so dots and
+slashes still disambiguate abbreviations from full words (e.g. "мор." but not
+"морской").
+"""
 
 import re
 
@@ -6,11 +14,6 @@ _ARTICLE_STRIP = re.compile(r"[^0-9a-zа-я]+", re.IGNORECASE)
 _NON_NAME = re.compile(r"[^0-9a-zа-я.]+", re.IGNORECASE)
 _WS = re.compile(r"\s+")
 
-# Domain abbreviation → canonical expansions (logistics / customs). Both the
-# catalog name and the noisy supplier/estimate name pass through here, so they
-# converge on the same wording — boosting lexical *and* semantic recall. Patterns
-# run on lowercased text before punctuation is stripped, so dots/slashes still
-# disambiguate abbreviations from full words (e.g. "мор." but not "морской").
 _SYNONYMS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"мор\."), "морской"),
     (re.compile(r"\bавиа\b"), "авиаперевозка"),

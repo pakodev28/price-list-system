@@ -18,7 +18,11 @@ class ProductGroup(models.Model):
 
 
 class CatalogProduct(models.Model):
-    """A catalog product — the hub that supplier and estimate items link to."""
+    """A catalog product — the hub that supplier and estimate items link to.
+
+    ``embedding`` holds the L2-normalized name embedding as float32 bytes, used
+    for semantic matching.
+    """
 
     article = models.CharField("Артикул", max_length=128, unique=True)
     name = models.CharField("Наименование", max_length=512)
@@ -31,7 +35,6 @@ class CatalogProduct(models.Model):
         on_delete=models.SET_NULL,
         related_name="products",
     )
-    # L2-normalized sentence embedding (float32 bytes) for semantic matching.
     embedding = models.BinaryField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

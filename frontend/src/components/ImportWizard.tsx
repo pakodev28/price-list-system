@@ -9,7 +9,8 @@ export interface ImportFieldDef {
 }
 
 /** Generic Excel import wizard: preview → column mapping → background parse.
- *  Reused for both estimates and price lists via `resourceUrl` + `fields`. */
+ *  Reused for both estimates and price lists via `resourceUrl` + `fields`.
+ *  `headerRow` defaults to null, letting the backend auto-detect it. */
 export default function ImportWizard({
   resourceUrl,
   sourceFilename,
@@ -21,7 +22,6 @@ export default function ImportWizard({
   fields: ImportFieldDef[];
   onParsed: () => void;
 }) {
-  // null = let the backend auto-detect the header row.
   const [headerRow, setHeaderRow] = useState<number | null>(null);
   const [mapping, setMapping] = useState<Record<string, number>>({});
 

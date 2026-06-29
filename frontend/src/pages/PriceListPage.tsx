@@ -225,7 +225,6 @@ function PriceItemRow({
     queryFn: () => apiGet<ProductDraft>(`/price-list-items/${item.id}/product-draft/`),
   });
 
-  // Pre-fill the form once the draft (with the AI-suggested group) arrives.
   useEffect(() => {
     if (draft.data) {
       setForm({

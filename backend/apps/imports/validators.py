@@ -6,7 +6,7 @@ from typing import Any
 from django.core.exceptions import ValidationError
 
 ALLOWED_EXTENSIONS = (".xlsx", ".xls")
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 def validate_excel_file(file: Any) -> None:

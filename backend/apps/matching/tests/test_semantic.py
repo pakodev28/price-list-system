@@ -26,7 +26,7 @@ def test_semantic_shortlist_ranks_by_cosine(monkeypatch) -> None:
 
 
 def test_semantic_shortlist_empty_without_vectors() -> None:
-    # No vectors -> returns [] without ever loading the embedding model.
+    """Returns [] without ever loading the embedding model when no vectors exist."""
     assert semantic.semantic_shortlist("q", [Candidate(id=1, article="", name="x")], 5) == []
 
 
@@ -82,8 +82,8 @@ def test_route_by_group_narrows_to_closest_group(monkeypatch, settings) -> None:
 
     routed = {c.id for c in semantic._route_by_group("фрахт", candidates)}
 
-    assert 3 not in routed  # far group dropped
-    assert {1, 2, 4} <= routed  # near group + ungrouped kept
+    assert 3 not in routed
+    assert {1, 2, 4} <= routed
 
 
 def _grouped(cid: int, group_id: int, vector: list[float]) -> Candidate:
@@ -93,26 +93,30 @@ def _grouped(cid: int, group_id: int, vector: list[float]) -> Candidate:
 
 
 def test_retrieve_keeps_lexical_match_despite_misrouting(monkeypatch, settings) -> None:
+    """A near-exact lexical match survives even when routing sends it to a far group.
+
+    The query embeds onto group 10's centroid, so routing alone would drop the
+    matching candidate (id 3) sitting in group 20.
+    """
     settings.MATCH_GROUP_TOP_N = 1
     candidates = [
-        _grouped(1, 10, [1.0, 0.0]),  # wrong group the query routes toward
+        _grouped(1, 10, [1.0, 0.0]),
         _grouped(2, 10, [1.0, 0.0]),
         Candidate(
             id=3,
             article="",
-            name="аккумулятор автомобильный",  # near-exact lexical match, far group
+            name="аккумулятор автомобильный",
             group_id=20,
             vector=np.array([0.0, 1.0], dtype=np.float32),
         ),
     ]
-    # Query embedding points at group 10's centroid, so routing alone drops group 20.
     monkeypatch.setattr(
         semantic, "embed_texts", lambda _t: np.array([[1.0, 0.0]], dtype=np.float32)
     )
 
     ranked = semantic.retrieve("аккумулятор автомобильный", candidates, 5)
 
-    assert 3 in {c.id for c, _score in ranked}  # lexical winner survives misrouting
+    assert 3 in {c.id for c, _score in ranked}
 
 
 def test_precomputed_centroids_preserve_routing(monkeypatch, settings) -> None:
@@ -130,7 +134,7 @@ def test_precomputed_centroids_preserve_routing(monkeypatch, settings) -> None:
     inline = {c.id for c in semantic._route_by_group("q", candidates)}
     precomputed = {c.id for c in semantic._route_by_group("q", candidates, centroids)}
 
-    assert inline == precomputed == {1, 3}  # near group + ungrouped; far group dropped
+    assert inline == precomputed == {1, 3}
 
 
 def test_classify_group_picks_nearest_centroid(monkeypatch, settings) -> None:
@@ -148,8 +152,8 @@ def test_classify_group_none_without_vectors() -> None:
 
 
 def test_classify_group_below_floor_returns_none(monkeypatch, settings) -> None:
+    """A query orthogonal to the only centroid scores ~0, below the floor."""
     settings.MATCH_GROUP_MIN_SCORE = 0.9
-    # Query orthogonal to the only centroid -> score ~0, below the floor.
     monkeypatch.setattr(
         semantic, "embed_texts", lambda _t: np.array([[0.0, 1.0]], dtype=np.float32)
     )

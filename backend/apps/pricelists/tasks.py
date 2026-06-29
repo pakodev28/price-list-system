@@ -51,7 +51,7 @@ def parse_price_list(price_list_id: int) -> dict[str, int]:
         price_list.progress = 100
         price_list.status = ImportStatus.DONE
         price_list.save(update_fields=["processed_rows", "row_errors", "progress", "status"])
-    except Exception as exc:  # noqa: BLE001 — record failure, then re-raise
+    except Exception as exc:  # noqa: BLE001
         price_list.status = ImportStatus.FAILED
         price_list.error = str(exc)
         price_list.save(update_fields=["status", "error"])
@@ -71,7 +71,7 @@ def _build_items(
         try:
             name = to_text(get_cell(row, mapping.get("name")))
             if not name:
-                continue  # skip blank rows
+                continue
             items.append(
                 PriceListItem(
                     price_list=price_list,
@@ -82,7 +82,7 @@ def _build_items(
                     price=to_decimal(get_cell(row, mapping.get("price"))),
                 )
             )
-        except Exception as exc:  # noqa: BLE001 — collect row error and continue
+        except Exception as exc:  # noqa: BLE001
             errors.append({"row": index, "message": str(exc)})
         if index % _BATCH_SIZE == 0:
             price_list.progress = min(99, int(index / total * 100))
@@ -100,7 +100,7 @@ def auto_match_price_list(price_list_id: int, item_ids: list[int] | None = None)
     """
     price_list = PriceList.objects.get(pk=price_list_id)
     candidates = to_candidates(CatalogProduct.objects.all())
-    centroids = group_centroids(candidates)  # computed once, reused for every item
+    centroids = group_centroids(candidates)
     service = MatchingService()
     queryset = price_list.items.all()
     if item_ids:

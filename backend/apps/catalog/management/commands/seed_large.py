@@ -244,7 +244,7 @@ def _noisy(name: str, rng: random.Random) -> str:
     if rng.random() < 0.3:
         text = text.replace("–", "-")
     if rng.random() < 0.2:
-        text = re.sub(r"\s*\(ТН ВЭД \d+\)", "", text)  # drop the HS code
+        text = re.sub(r"\s*\(ТН ВЭД \d+\)", "", text)
     if rng.random() < 0.15:
         parts = text.split(" ")
         if len(parts) > 2:
@@ -307,13 +307,18 @@ class Command(BaseCommand):
         )
 
     def _seed_catalog(self, rng: random.Random, count: int) -> list[str]:
+        """Create ``count`` catalog products, cycling the pool with variant suffixes.
+
+        Articles are prefixed with a per-run ``uuid`` token (independent of
+        ``--seed``) so repeated runs never collide on the unique article field.
+        """
         pool = _catalog_pool()
         rng.shuffle(pool)
         groups = {
             name: ProductGroup.objects.get_or_create(name=name)[0]
             for name in sorted({group for _n, _u, group in pool})
         }
-        token = uuid.uuid4().hex[:6]  # unique per run, independent of --seed
+        token = uuid.uuid4().hex[:6]
         products: list[CatalogProduct] = []
         for i in range(count):
             name, unit, group = pool[i % len(pool)]

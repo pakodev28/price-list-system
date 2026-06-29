@@ -42,7 +42,6 @@ def test_create_product_creates_links_and_dedupes_by_article() -> None:
     assert item.catalog_product.article == "VVG-1"
     created_id = item.catalog_product_id
 
-    # A second position with the same article reuses the catalog product.
     other = _item(name="Кабель ВВГ (дубль)", article="VVG-1", unit="м")
     client.post(f"/api/price-list-items/{other.id}/create-product/", {}, format="json")
     other.refresh_from_db()
@@ -64,7 +63,7 @@ def test_create_product_uses_confirmed_group_and_field_overrides() -> None:
     item.refresh_from_db()
     product = item.catalog_product
     assert product is not None
-    assert product.name == "Морской фрахт 40HC"  # user-edited value wins over the position
+    assert product.name == "Морской фрахт 40HC"
     assert product.group_id == group.id
 
 
@@ -92,7 +91,7 @@ def test_create_product_rejects_unknown_group() -> None:
 
     assert response.status_code == 400
     item.refresh_from_db()
-    assert item.catalog_product is None  # nothing created on a bad group
+    assert item.catalog_product is None
 
 
 def test_product_draft_returns_position_fields_and_groups() -> None:
@@ -105,7 +104,7 @@ def test_product_draft_returns_position_fields_and_groups() -> None:
     data = response.json()
     assert data["name"] == "Фрахт"
     assert data["article"] == "A1"
-    assert data["suggested_group"] is None  # no embeddings in test DB
+    assert data["suggested_group"] is None
     assert any(g["name"] == "Логистика" for g in data["groups"])
 
 

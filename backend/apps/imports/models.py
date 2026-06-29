@@ -22,12 +22,10 @@ class AbstractImportJob(models.Model):
     source_filename = models.CharField(max_length=255, blank=True)
     file = models.FileField(upload_to=import_upload_to, blank=True)
 
-    # Import configuration
     sheet = models.CharField(max_length=255, blank=True)
     header_row = models.PositiveIntegerField(default=0)
     mapping = models.JSONField(default=dict, blank=True)
 
-    # Background job state
     status = models.CharField(
         max_length=16, choices=ImportStatus.choices, default=ImportStatus.PENDING
     )

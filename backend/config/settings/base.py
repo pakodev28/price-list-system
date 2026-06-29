@@ -18,12 +18,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # third-party
     "rest_framework",
     "django_filters",
     "drf_spectacular",
     "corsheaders",
-    # local
     "apps.suppliers",
     "apps.catalog",
     "apps.pricelists",
@@ -68,7 +66,6 @@ DATABASES = {
     ),
 }
 
-# Scope: no authentication (single workspace). Keep validators minimal.
 AUTH_PASSWORD_VALIDATORS: list[dict[str, str]] = []
 
 LANGUAGE_CODE = "ru-ru"
@@ -99,15 +96,12 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
-# Celery
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379/1")
 CELERY_TASK_TRACK_STARTED = True
 
-# CORS — permissive in this single-workspace prototype.
 CORS_ALLOW_ALL_ORIGINS = True
 
-# Matching / LLM configuration
 MATCHER_STRATEGY = env("MATCHER_STRATEGY", default="hybrid")
 MATCH_THRESHOLD = env.float("MATCH_THRESHOLD", default=0.75)
 MATCH_SHORTLIST_SIZE = env.int("MATCH_SHORTLIST_SIZE", default=8)
@@ -116,8 +110,6 @@ MATCH_ACCEPT_THRESHOLD = env.float("MATCH_ACCEPT_THRESHOLD", default=0.78)
 MATCH_FLOOR = env.float("MATCH_FLOOR", default=0.40)
 MATCH_GROUP_TOP_N = env.int("MATCH_GROUP_TOP_N", default=2)
 MATCH_GROUP_MIN_SCORE = env.float("MATCH_GROUP_MIN_SCORE", default=0.35)
-# Embed a catalog product as soon as it's created from a position, so the hybrid
-# catalog is semantically matchable immediately (not only after `embed_catalog`).
 MATCH_EMBED_ON_CREATE = env.bool("MATCH_EMBED_ON_CREATE", default=True)
 LLM_ENABLED = env.bool("LLM_ENABLED", default=False)
 LLM_BASE_URL = env("LLM_BASE_URL", default="")
