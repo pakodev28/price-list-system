@@ -11,9 +11,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 WORKDIR /app
 
 # Install deps in a separate layer so code edits don't reinstall packages.
+# Dev tools (pytest, ruff, ...) are included by default so tests and lint run
+# in-container per the README; set INSTALL_DEV=0 for a lean production image.
 COPY pyproject.toml ./
+ARG INSTALL_DEV=1
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system .
+    uv pip install --system . \
+    && if [ "$INSTALL_DEV" = "1" ]; then uv pip install --system --group dev; fi
 
 # Bake the multilingual embedding model into the image so the first match
 # isn't blocked on a download. Set BAKE_MODEL=0 for faster local rebuilds
